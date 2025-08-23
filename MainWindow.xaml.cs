@@ -18,9 +18,7 @@ namespace ApartmentManagementSystem
         public MainWindow()
         {
             InitializeComponent();
-            TenantDatabaseInitializer.InitializeDatabase();
-            MaintenanceDatabaseInitializer.InitializeDatabase();
-            DatabaseHelper.InitializeDatabase();
+            DatabaseManager.InitializeDatabase();
             _propertyRepository = new PropertyRepository();
             _unitRepository = new UnitRepository();
             _tenantRepository = new TenantRepository();
@@ -34,7 +32,7 @@ namespace ApartmentManagementSystem
         private void InitializeAutoRefresh()
         {
             _autoRefreshTimer = new System.Windows.Threading.DispatcherTimer();
-            _autoRefreshTimer.Interval = TimeSpan.FromSeconds(30); // Refresh every 30 seconds
+            _autoRefreshTimer.Interval = TimeSpan.FromSeconds(30);
             _autoRefreshTimer.Tick += (sender, e) => LoadDashboardData();
             _autoRefreshTimer.Start();
         }
@@ -54,21 +52,14 @@ namespace ApartmentManagementSystem
         {
             try
             {
-                // Load statistics
                 LoadStatistics();
-
-                // Load all data for dashboard tabs
                 var properties = _propertyRepository.GetAll();
                 var units = _unitRepository.GetAll();
                 var tenants = _tenantRepository.GetAll();
                 var leases = _leaseRepository.GetAll();
                 var payments = _paymentRepository.GetAll();
                 var maintenance = _maintenanceRepository.GetAll();
-
-                // Load recent activity
                 LoadRecentActivity(tenants, properties, maintenance, payments);
-
-                // Load tab data
                 LoadVacantUnits();
                 LoadOccupiedUnits();
                 LoadTenantActivity();
@@ -76,7 +67,7 @@ namespace ApartmentManagementSystem
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error loading dashboard  {ex.Message}", "Error",
+                MessageBox.Show($"Error loading dashboard: {ex.Message}", "Error",
                               MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -85,7 +76,6 @@ namespace ApartmentManagementSystem
         {
             var recentActivities = new List<object>();
 
-            // Recent tenants
             var recentTenants = tenants.OrderByDescending(t => t.CreatedDate).Take(5)
                 .Select(t => new
                 {
@@ -95,7 +85,6 @@ namespace ApartmentManagementSystem
                 });
             recentActivities.AddRange(recentTenants);
 
-            // Recent properties
             var recentProperties = properties.OrderByDescending(p => p.CreatedDate).Take(5)
                 .Select(p => new
                 {
@@ -105,7 +94,6 @@ namespace ApartmentManagementSystem
                 });
             recentActivities.AddRange(recentProperties);
 
-            // Recent maintenance
             var recentMaintenance = maintenance.OrderByDescending(m => m.RequestDate).Take(5)
                 .Select(m => new
                 {
@@ -115,7 +103,6 @@ namespace ApartmentManagementSystem
                 });
             recentActivities.AddRange(recentMaintenance);
 
-            // Recent payments
             var recentPayments = payments.OrderByDescending(p => p.PaymentDate).Take(5)
                 .Select(p => new
                 {
@@ -176,7 +163,6 @@ namespace ApartmentManagementSystem
             }
             catch (Exception ex)
             {
-                // Silently fail
             }
         }
 
@@ -209,7 +195,6 @@ namespace ApartmentManagementSystem
             }
             catch (Exception ex)
             {
-                // Silently fail
             }
         }
 
@@ -243,7 +228,6 @@ namespace ApartmentManagementSystem
             }
             catch (Exception ex)
             {
-                // Silently fail
             }
         }
 
@@ -278,7 +262,6 @@ namespace ApartmentManagementSystem
             }
             catch (Exception ex)
             {
-                // Silently fail
             }
         }
 
@@ -288,7 +271,6 @@ namespace ApartmentManagementSystem
             return property?.Name ?? "Unknown Property";
         }
 
-        // Management buttons
         private void btnTenants_Click(object sender, RoutedEventArgs e)
         {
             var tenantWindow = new TenantManagementWindow();
@@ -325,7 +307,6 @@ namespace ApartmentManagementSystem
             maintenanceWindow.Show();
         }
 
-        // Report buttons
         private void btnPropertyReport_Click(object sender, RoutedEventArgs e)
         {
             try

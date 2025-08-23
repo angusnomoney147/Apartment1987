@@ -42,15 +42,9 @@ namespace ApartmentManagementSystem
                             tenant.Address = GetString(reader, "Address", "");
                             tenant.EmergencyContact = GetString(reader, "EmergencyContact", "");
                             tenant.EmergencyPhone = GetString(reader, "EmergencyPhone", "");
-
-                            // Handle nullable dates
-                            tenant.LeaseStartDate = GetNullableDateTime(reader, "LeaseStartDate");
-                            tenant.LeaseEndDate = GetNullableDateTime(reader, "LeaseEndDate");
+                            tenant.RentAmount = GetNullableDecimal(reader, "RentAmount");
                             tenant.DateOfBirth = GetNullableDateTime(reader, "DateOfBirth");
                             tenant.CreatedDate = GetDateTime(reader, "CreatedDate", DateTime.Now);
-
-                            // Handle nullable decimal
-                            tenant.RentAmount = GetNullableDecimal(reader, "RentAmount");
 
                             tenants.Add(tenant);
                         }
@@ -92,12 +86,9 @@ namespace ApartmentManagementSystem
                                 tenant.Address = GetString(reader, "Address", "");
                                 tenant.EmergencyContact = GetString(reader, "EmergencyContact", "");
                                 tenant.EmergencyPhone = GetString(reader, "EmergencyPhone", "");
-
-                                tenant.LeaseStartDate = GetNullableDateTime(reader, "LeaseStartDate");
-                                tenant.LeaseEndDate = GetNullableDateTime(reader, "LeaseEndDate");
+                                tenant.RentAmount = GetNullableDecimal(reader, "RentAmount");
                                 tenant.DateOfBirth = GetNullableDateTime(reader, "DateOfBirth");
                                 tenant.CreatedDate = GetDateTime(reader, "CreatedDate", DateTime.Now);
-                                tenant.RentAmount = GetNullableDecimal(reader, "RentAmount");
 
                                 return tenant;
                             }
@@ -121,9 +112,9 @@ namespace ApartmentManagementSystem
                     connection.Open();
                     using (var command = new SQLiteCommand(@"
                         INSERT INTO Tenants 
-                        (FirstName, LastName, Email, Phone, UnitNumber, PropertyName, IsActive, LeaseStartDate, LeaseEndDate, RentAmount, CreatedDate, DateOfBirth, NationalId, Address, EmergencyContact, EmergencyPhone)
+                        (FirstName, LastName, Email, Phone, UnitNumber, PropertyName, IsActive, RentAmount, CreatedDate, DateOfBirth, NationalId, Address, EmergencyContact, EmergencyPhone)
                         VALUES 
-                        (@FirstName, @LastName, @Email, @Phone, @UnitNumber, @PropertyName, @IsActive, @LeaseStartDate, @LeaseEndDate, @RentAmount, @CreatedDate, @DateOfBirth, @NationalId, @Address, @EmergencyContact, @EmergencyPhone)", connection))
+                        (@FirstName, @LastName, @Email, @Phone, @UnitNumber, @PropertyName, @IsActive, @RentAmount, @CreatedDate, @DateOfBirth, @NationalId, @Address, @EmergencyContact, @EmergencyPhone)", connection))
                     {
                         command.Parameters.AddWithValue("@FirstName", tenant.FirstName ?? "");
                         command.Parameters.AddWithValue("@LastName", tenant.LastName ?? "");
@@ -132,15 +123,13 @@ namespace ApartmentManagementSystem
                         command.Parameters.AddWithValue("@UnitNumber", tenant.UnitNumber ?? "");
                         command.Parameters.AddWithValue("@PropertyName", tenant.PropertyName ?? "");
                         command.Parameters.AddWithValue("@IsActive", tenant.IsActive ? 1 : 0);
+                        command.Parameters.AddWithValue("@RentAmount", (object)tenant.RentAmount ?? DBNull.Value);
+                        command.Parameters.AddWithValue("@CreatedDate", tenant.CreatedDate);
+                        command.Parameters.AddWithValue("@DateOfBirth", (object)tenant.DateOfBirth ?? DBNull.Value);
                         command.Parameters.AddWithValue("@NationalId", tenant.NationalId ?? "");
                         command.Parameters.AddWithValue("@Address", tenant.Address ?? "");
                         command.Parameters.AddWithValue("@EmergencyContact", tenant.EmergencyContact ?? "");
                         command.Parameters.AddWithValue("@EmergencyPhone", tenant.EmergencyPhone ?? "");
-                        command.Parameters.AddWithValue("@LeaseStartDate", (object)tenant.LeaseStartDate ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@LeaseEndDate", (object)tenant.LeaseEndDate ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@DateOfBirth", (object)tenant.DateOfBirth ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@RentAmount", (object)tenant.RentAmount ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@CreatedDate", tenant.CreatedDate);
 
                         command.ExecuteNonQuery();
                     }
@@ -168,8 +157,6 @@ namespace ApartmentManagementSystem
                         UnitNumber = @UnitNumber,
                         PropertyName = @PropertyName,
                         IsActive = @IsActive,
-                        LeaseStartDate = @LeaseStartDate,
-                        LeaseEndDate = @LeaseEndDate,
                         RentAmount = @RentAmount,
                         CreatedDate = @CreatedDate,
                         DateOfBirth = @DateOfBirth,
@@ -187,15 +174,13 @@ namespace ApartmentManagementSystem
                         command.Parameters.AddWithValue("@UnitNumber", tenant.UnitNumber ?? "");
                         command.Parameters.AddWithValue("@PropertyName", tenant.PropertyName ?? "");
                         command.Parameters.AddWithValue("@IsActive", tenant.IsActive ? 1 : 0);
+                        command.Parameters.AddWithValue("@RentAmount", (object)tenant.RentAmount ?? DBNull.Value);
+                        command.Parameters.AddWithValue("@CreatedDate", tenant.CreatedDate);
+                        command.Parameters.AddWithValue("@DateOfBirth", (object)tenant.DateOfBirth ?? DBNull.Value);
                         command.Parameters.AddWithValue("@NationalId", tenant.NationalId ?? "");
                         command.Parameters.AddWithValue("@Address", tenant.Address ?? "");
                         command.Parameters.AddWithValue("@EmergencyContact", tenant.EmergencyContact ?? "");
                         command.Parameters.AddWithValue("@EmergencyPhone", tenant.EmergencyPhone ?? "");
-                        command.Parameters.AddWithValue("@LeaseStartDate", (object)tenant.LeaseStartDate ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@LeaseEndDate", (object)tenant.LeaseEndDate ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@DateOfBirth", (object)tenant.DateOfBirth ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@RentAmount", (object)tenant.RentAmount ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@CreatedDate", tenant.CreatedDate);
 
                         command.ExecuteNonQuery();
                     }
@@ -227,7 +212,6 @@ namespace ApartmentManagementSystem
             }
         }
 
-        // Helper methods to safely read data
         private int GetInt32(SQLiteDataReader reader, string columnName, int defaultValue)
         {
             try

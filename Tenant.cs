@@ -12,8 +12,6 @@ namespace ApartmentManagementSystem
         public string UnitNumber { get; set; }
         public string PropertyName { get; set; }
         public bool IsActive { get; set; }
-        public DateTime? LeaseStartDate { get; set; }
-        public DateTime? LeaseEndDate { get; set; }
         public decimal? RentAmount { get; set; }
         public DateTime CreatedDate { get; set; }
         public DateTime? DateOfBirth { get; set; }
@@ -22,7 +20,6 @@ namespace ApartmentManagementSystem
         public string EmergencyContact { get; set; }
         public string EmergencyPhone { get; set; }
 
-        // Computed property for full name
         public string FullName
         {
             get { return $"{FirstName} {LastName}"; }
