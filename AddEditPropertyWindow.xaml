@@ -1,0 +1,88 @@
+﻿<Window x:Class="ApartmentManagementSystem.AddEditPropertyWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Add/Edit Property" Height="600" Width="700"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="#2C3E50" Padding="15">
+            <TextBlock x:Name="TxtHeader" Text="PropertyParams Management" 
+                      Foreground="White" FontSize="18" FontWeight="Bold"/>
+        </Border>
+
+        <!-- Form -->
+        <ScrollViewer Grid.Row="1">
+            <Grid Margin="20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Property Name -->
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="PropertyParams Name *" Margin="0,5"/>
+                <TextBox Grid.Row="1" Grid.Column="0" x:Name="TxtName" Margin="0,0,10,15" Padding="5"/>
+
+                <!-- Address -->
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="Address" Margin="0,5"/>
+                <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtAddress" Margin="0,0,0,15" Padding="5"/>
+
+                <!-- City -->
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="City" Margin="0,5"/>
+                <TextBox Grid.Row="3" Grid.Column="0" x:Name="TxtCity" Margin="0,0,10,15" Padding="5"/>
+
+                <!-- Country -->
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="Country" Margin="0,5"/>
+                <TextBox Grid.Row="3" Grid.Column="1" x:Name="TxtCountry" Margin="0,0,0,15" Padding="5"/>
+
+                <!-- Manager Name -->
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="Manager Name" Margin="0,5"/>
+                <TextBox Grid.Row="5" Grid.Column="0" x:Name="TxtManagerName" Margin="0,0,10,15" Padding="5"/>
+
+                <!-- Contact Info -->
+                <TextBlock Grid.Row="4" Grid.Column="1" Text="Contact Info" Margin="0,5"/>
+                <TextBox Grid.Row="5" Grid.Column="1" x:Name="TxtContactInfo" Margin="0,0,0,15" Padding="5"/>
+
+                <!-- Total Units -->
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="Total Units *" Margin="0,5"/>
+                <TextBox Grid.Row="7" Grid.Column="0" x:Name="TxtTotalUnits" Margin="0,0,10,15" Padding="5" PreviewTextInput="IntegerOnly_PreviewTextInput"/>
+
+                <!-- Created Date -->
+                <TextBlock Grid.Row="6" Grid.Column="1" Text="Created Date" Margin="0,5"/>
+                <DatePicker Grid.Row="7" Grid.Column="1" x:Name="DpCreatedDate" Margin="0,0,0,15" Padding="5"/>
+            </Grid>
+        </ScrollViewer>
+
+        <!-- Buttons -->
+        <Border Grid.Row="2" Background="#ECF0F1" Padding="15">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="BtnCancel" Content="Cancel" 
+                        Width="100" Height="35" Margin="0,0,10,0"
+                        Background="#95A5A6" Foreground="White"
+                        Click="BtnCancel_Click"/>
+                <Button x:Name="BtnSave" Content="Save Property" 
+                        Width="120" Height="35"
+                        Background="#27AE60" Foreground="White"
+                        Click="BtnSave_Click"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

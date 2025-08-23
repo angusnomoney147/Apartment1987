@@ -1,0 +1,79 @@
+﻿<Window x:Class="ApartmentManagementSystem.UnitManagementWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Unit Management" Height="650" Width="1100"
+        WindowStartupLocation="CenterScreen">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="#2C3E50" Padding="15">
+            <TextBlock Text="🏠 Unit Management" 
+                      Foreground="White" FontSize="18" FontWeight="Bold"/>
+        </Border>
+
+        <!-- Property Selection -->
+        <Border Grid.Row="1" Background="#ECF0F1" Padding="10">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Select Property:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <ComboBox x:Name="CmbProperties" Width="300" Margin="0,0,20,0" 
+                         SelectionChanged="CmbProperties_SelectionChanged"/>
+                <Button x:Name="BtnRefreshProperties" Content="🔄 Refresh" 
+                        Padding="10,5" Background="#3498DB" Foreground="White"
+                        Click="BtnRefreshProperties_Click"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Toolbar -->
+        <Border Grid.Row="2" Background="#ECF0F1" Padding="10">
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="BtnAddUnit" Content="➕ Add New Unit" 
+                        Padding="15,8" Margin="0,0,10,0"
+                        Background="#27AE60" Foreground="White" 
+                        Click="BtnAddUnit_Click"/>
+                <Button x:Name="BtnEditUnit" Content="✏️ Edit Unit" 
+                        Padding="15,8" Margin="0,0,10,0"
+                        Background="#3498DB" Foreground="White" 
+                        Click="BtnEditUnit_Click"/>
+                <Button x:Name="BtnDeleteUnit" Content="🗑️ Delete Unit" 
+                        Padding="15,8" Margin="0,0,10,0"
+                        Background="#E74C3C" Foreground="White" 
+                        Click="BtnDeleteUnit_Click"/>
+                <TextBox x:Name="TxtSearch" Width="200" Margin="20,0,0,0" 
+                         VerticalContentAlignment="Center"
+                         TextChanged="TxtSearch_TextChanged"/>
+                <Button x:Name="BtnSearch" Content="🔍" 
+                        Padding="10,8" Margin="5,0,0,0"
+                        Background="#95A5A6" Foreground="White"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Data Grid -->
+        <DataGrid Grid.Row="3" x:Name="DataGridUnits" 
+                  AutoGenerateColumns="False" 
+                  IsReadOnly="True"
+                  SelectionMode="Single"
+                  SelectionUnit="FullRow"
+                  Margin="10"
+                  AlternatingRowBackground="#F8F9FA">
+
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="50"/>
+                <DataGridTextColumn Header="Unit Number" Binding="{Binding UnitNumber}" Width="100"/>
+                <DataGridTextColumn Header="Type" Binding="{Binding UnitType}" Width="100"/>
+                <DataGridTextColumn Header="Size (sq ft)" Binding="{Binding Size}" Width="80"/>
+                <DataGridTextColumn Header="Rent ($)" Binding="{Binding RentAmount}" Width="80"/>
+                <DataGridTextColumn Header="Bedrooms" Binding="{Binding Bedrooms}" Width="80"/>
+                <DataGridTextColumn Header="Bathrooms" Binding="{Binding Bathrooms}" Width="80"/>
+                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100"/>
+                <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="200"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</Window>

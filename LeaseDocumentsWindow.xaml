@@ -1,0 +1,64 @@
+﻿<Window x:Class="ApartmentManagementSystem.LeaseDocumentsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Lease Documents" Height="600" Width="800"
+        WindowStartupLocation="CenterScreen">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="#2C3E50" Padding="15">
+            <TextBlock x:Name="TxtHeader" Text="Lease Documents" 
+                      Foreground="White" FontSize="18" FontWeight="Bold"/>
+        </Border>
+
+        <!-- Lease Info -->
+        <Border Grid.Row="1" Background="#ECF0F1" Padding="10">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock x:Name="TxtLeaseInfo" Text="Lease: Unit 101 - John Smith" 
+                          FontWeight="Bold" FontSize="14"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Toolbar -->
+        <Border Grid.Row="2" Background="#ECF0F1" Padding="10">
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="BtnAddDocument" Content="➕ Add Document" 
+                        Padding="15,8" Margin="0,0,10,0"
+                        Background="#27AE60" Foreground="White" 
+                        Click="BtnAddDocument_Click"/>
+                <Button x:Name="BtnViewDocument" Content="👁️ View Document" 
+                        Padding="15,8" Margin="0,0,10,0"
+                        Background="#3498DB" Foreground="White" 
+                        Click="BtnViewDocument_Click"/>
+                <Button x:Name="BtnDeleteDocument" Content="🗑️ Delete Document" 
+                        Padding="15,8" Margin="0,0,10,0"
+                        Background="#E74C3C" Foreground="White" 
+                        Click="BtnDeleteDocument_Click"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Documents List -->
+        <DataGrid Grid.Row="3" x:Name="DataGridDocuments" 
+                  AutoGenerateColumns="False" 
+                  IsReadOnly="True"
+                  SelectionMode="Single"
+                  SelectionUnit="FullRow"
+                  Margin="10"
+                  AlternatingRowBackground="#F8F9FA">
+
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Document Name" Binding="{Binding DocumentName}" Width="*"/>
+                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="120"/>
+                <DataGridTextColumn Header="Upload Date" Binding="{Binding UploadDate, StringFormat='{}{0:yyyy-MM-dd}'}" Width="100"/>
+                <DataGridTextColumn Header="Notes" Binding="{Binding Notes}" Width="200"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</Window>
