@@ -18,6 +18,8 @@ namespace ApartmentManagementSystem
         public MainWindow()
         {
             InitializeComponent();
+            TenantDatabaseInitializer.InitializeDatabase();
+            MaintenanceDatabaseInitializer.InitializeDatabase();
             DatabaseHelper.InitializeDatabase();
             _propertyRepository = new PropertyRepository();
             _unitRepository = new UnitRepository();

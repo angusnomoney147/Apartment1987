@@ -9,58 +9,42 @@ namespace ApartmentManagementSystem
     public partial class TenantManagementWindow : Window
     {
         private readonly TenantRepository _tenantRepository;
-        private readonly LeaseRepository _leaseRepository;
         private List<Tenant> _allTenants = new();
-        private List<Lease> _allLeases = new();
 
         public TenantManagementWindow()
         {
             InitializeComponent();
             _tenantRepository = new TenantRepository();
-            _leaseRepository = new LeaseRepository();
-            LoadAllData();
+            LoadTenants();
         }
 
-        private void LoadAllData()
+        private void LoadTenants()
         {
             try
             {
                 _allTenants = _tenantRepository.GetAll();
-                _allLeases = _leaseRepository.GetAll();
-                RefreshTenantGrid();
+
+                // Create anonymous objects with the correct property names for binding
+                var tenantsForDisplay = _allTenants.Select(t => new
+                {
+                    t.Id,
+                    FullName = $"{t.FirstName} {t.LastName}",
+                    t.FirstName,
+                    t.LastName,
+                    t.Email,
+                    t.Phone,
+                    t.UnitNumber,
+                    PropertyName = t.PropertyName ?? "No Property",
+                    Status = t.IsActive ? "Active" : "Inactive"
+                }).ToList();
+
+                DataGridTenants.ItemsSource = tenantsForDisplay;
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error loading  {ex.Message}", "Error",
+                MessageBox.Show($"Error loading tenants: {ex.Message}", "Error",
                               MessageBoxButton.OK, MessageBoxImage.Error);
             }
-        }
-
-        private void RefreshTenantGrid()
-        {
-            var tenantsWithInfo = _allTenants.Select(t => new
-            {
-                t.Id,
-                t.FullName,
-                t.Email,
-                t.Phone,
-                t.EmergencyContact,
-                t.EmergencyPhone,
-                t.NationalId,
-                t.DateOfBirth,
-                t.Address,
-                ActiveLeases = _allLeases.Count(l => l.TenantId == t.Id && l.Status == LeaseStatus.Active),
-                t.CreatedDate,
-                Status = t.IsActive ? "Active" : "Inactive"
-            }).ToList();
-
-            DataGridTenants.ItemsSource = tenantsWithInfo;
-        }
-
-        private void NotifyParentOfChanges()
-        {
-            var mainWindow = Application.Current.Windows.OfType<MainWindow>().FirstOrDefault();
-            mainWindow?.ManualRefresh();
         }
 
         private void BtnAddTenant_Click(object sender, RoutedEventArgs e)
@@ -68,8 +52,7 @@ namespace ApartmentManagementSystem
             var addTenantWindow = new AddEditTenantWindow();
             if (addTenantWindow.ShowDialog() == true)
             {
-                LoadAllData();
-                NotifyParentOfChanges();
+                LoadTenants();
             }
         }
 
@@ -79,18 +62,17 @@ namespace ApartmentManagementSystem
             {
                 var selectedItem = DataGridTenants.SelectedItem;
                 var tenantIdProperty = selectedItem.GetType().GetProperty("Id");
-                int selectedTenantId = tenantIdProperty != null ? (int)tenantIdProperty.GetValue(selectedItem) : 0;
+                int tenantId = tenantIdProperty != null ? (int)tenantIdProperty.GetValue(selectedItem) : 0;
 
-                if (selectedTenantId > 0)
+                if (tenantId > 0)
                 {
-                    var tenantToEdit = _allTenants.FirstOrDefault(t => t.Id == selectedTenantId);
+                    var tenantToEdit = _allTenants.FirstOrDefault(t => t.Id == tenantId);
                     if (tenantToEdit != null)
                     {
                         var editTenantWindow = new AddEditTenantWindow(tenantToEdit);
                         if (editTenantWindow.ShowDialog() == true)
                         {
-                            LoadAllData();
-                            NotifyParentOfChanges();
+                            LoadTenants();
                         }
                     }
                 }
@@ -108,14 +90,14 @@ namespace ApartmentManagementSystem
             {
                 var selectedItem = DataGridTenants.SelectedItem;
                 var tenantIdProperty = selectedItem.GetType().GetProperty("Id");
-                int selectedTenantId = tenantIdProperty != null ? (int)tenantIdProperty.GetValue(selectedItem) : 0;
+                int tenantId = tenantIdProperty != null ? (int)tenantIdProperty.GetValue(selectedItem) : 0;
 
-                if (selectedTenantId > 0)
+                if (tenantId > 0)
                 {
-                    var tenantToDelete = _allTenants.FirstOrDefault(t => t.Id == selectedTenantId);
+                    var tenantToDelete = _allTenants.FirstOrDefault(t => t.Id == tenantId);
                     if (tenantToDelete != null)
                     {
-                        var result = MessageBox.Show($"Are you sure you want to delete {tenantToDelete.FullName}?",
+                        var result = MessageBox.Show($"Are you sure you want to delete tenant {tenantToDelete.FirstName} {tenantToDelete.LastName}?",
                                                    "Confirm Delete",
                                                    MessageBoxButton.YesNo,
                                                    MessageBoxImage.Question);
@@ -125,8 +107,7 @@ namespace ApartmentManagementSystem
                             try
                             {
                                 _tenantRepository.Delete(tenantToDelete.Id);
-                                LoadAllData();
-                                NotifyParentOfChanges();
+                                LoadTenants();
                                 MessageBox.Show("Tenant deleted successfully!", "Success",
                                               MessageBoxButton.OK, MessageBoxImage.Information);
                             }
@@ -148,64 +129,35 @@ namespace ApartmentManagementSystem
 
         private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
         {
-            var searchText = txtSearch.Text.ToLower(); // Changed from TxtSearch to txtSearch
+            var searchText = TxtSearch.Text.ToLower();
             if (string.IsNullOrWhiteSpace(searchText))
             {
-                RefreshTenantGrid();
+                LoadTenants();
             }
             else
             {
                 var filteredTenants = _allTenants.Where(t =>
-                    t.FullName.ToLower().Contains(searchText) ||
+                    (t.FirstName?.ToLower().Contains(searchText) ?? false) ||
+                    (t.LastName?.ToLower().Contains(searchText) ?? false) ||
                     (t.Email?.ToLower().Contains(searchText) ?? false) ||
-                    (t.Phone?.Contains(searchText) ?? false) ||
-                    (t.Address?.ToLower().Contains(searchText) ?? false)).ToList();
+                    (t.Phone?.ToLower().Contains(searchText) ?? false) ||
+                    (t.UnitNumber?.ToLower().Contains(searchText) ?? false)).ToList();
 
-                var tenantsWithInfo = filteredTenants.Select(t => new
+                var tenantsForDisplay = filteredTenants.Select(t => new
                 {
                     t.Id,
-                    t.FullName,
+                    FullName = $"{t.FirstName} {t.LastName}",
+                    t.FirstName,
+                    t.LastName,
                     t.Email,
                     t.Phone,
-                    t.EmergencyContact,
-                    t.EmergencyPhone,
-                    t.NationalId,
-                    t.DateOfBirth,
-                    t.Address,
-                    ActiveLeases = _allLeases.Count(l => l.TenantId == t.Id && l.Status == LeaseStatus.Active),
-                    t.CreatedDate,
+                    t.UnitNumber,
+                    PropertyName = t.PropertyName ?? "No Property",
                     Status = t.IsActive ? "Active" : "Inactive"
                 }).ToList();
 
-                DataGridTenants.ItemsSource = tenantsWithInfo; // Changed from DataGridTenants to dataGridTenants
+                DataGridTenants.ItemsSource = tenantsForDisplay;
             }
-        }
-
-        private void BtnShowAll_Click(object sender, RoutedEventArgs e)
-        {
-            RefreshTenantGrid();
-        }
-
-        private void BtnActiveOnly_Click(object sender, RoutedEventArgs e)
-        {
-            var activeTenants = _allTenants.Where(t => t.IsActive).ToList();
-            var tenantsWithInfo = activeTenants.Select(t => new
-            {
-                t.Id,
-                t.FullName,
-                t.Email,
-                t.Phone,
-                t.EmergencyContact,
-                t.EmergencyPhone,
-                t.NationalId,
-                t.DateOfBirth,
-                t.Address,
-                ActiveLeases = _allLeases.Count(l => l.TenantId == t.Id && l.Status == LeaseStatus.Active),
-                t.CreatedDate,
-                Status = t.IsActive ? "Active" : "Inactive"
-            }).ToList();
-
-            DataGridTenants.ItemsSource = tenantsWithInfo;
         }
     }
 }

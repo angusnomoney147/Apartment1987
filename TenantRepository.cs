@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
-using System;
+using System.Linq;
+using System.Windows;
 
 namespace ApartmentManagementSystem
 {
@@ -11,103 +12,285 @@ namespace ApartmentManagementSystem
 
         public TenantRepository()
         {
-            _connectionString = DatabaseHelper.GetConnectionString();
+            _connectionString = "Data Source=apartment.db;Version=3;";
         }
 
         public List<Tenant> GetAll()
         {
             var tenants = new List<Tenant>();
-            using var connection = new SQLiteConnection(_connectionString);
-            connection.Open();
-
-            using var command = new SQLiteCommand("SELECT * FROM Tenants WHERE IsActive = 1 ORDER BY FirstName, LastName", connection);
-            using var reader = command.ExecuteReader();
-
-            while (reader.Read())
+            try
             {
-                tenants.Add(new Tenant
+                using (var connection = new SQLiteConnection(_connectionString))
                 {
-                    Id = Convert.ToInt32(reader["Id"]),
-                    FirstName = reader["FirstName"].ToString() ?? string.Empty,
-                    LastName = reader["LastName"].ToString() ?? string.Empty,
-                    Email = reader["Email"]?.ToString() ?? string.Empty,
-                    Phone = reader["Phone"]?.ToString() ?? string.Empty,
-                    EmergencyContact = reader["EmergencyContact"]?.ToString() ?? string.Empty,
-                    EmergencyPhone = reader["EmergencyPhone"]?.ToString() ?? string.Empty,
-                    NationalId = reader["NationalId"]?.ToString() ?? string.Empty,
-                    DateOfBirth = DateTime.Parse(reader["DateOfBirth"]?.ToString() ?? DateTime.Now.ToString()),
-                    Address = reader["Address"]?.ToString() ?? string.Empty,
-                    CreatedDate = DateTime.Parse(reader["CreatedDate"]?.ToString() ?? DateTime.Now.ToString()),
-                    IsActive = Convert.ToBoolean(reader["IsActive"])
-                });
+                    connection.Open();
+                    using (var command = new SQLiteCommand("SELECT * FROM Tenants ORDER BY LastName, FirstName", connection))
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var tenant = new Tenant();
+
+                            tenant.Id = GetInt32(reader, "Id", 0);
+                            tenant.FirstName = GetString(reader, "FirstName", "");
+                            tenant.LastName = GetString(reader, "LastName", "");
+                            tenant.Email = GetString(reader, "Email", "");
+                            tenant.Phone = GetString(reader, "Phone", "");
+                            tenant.UnitNumber = GetString(reader, "UnitNumber", "");
+                            tenant.PropertyName = GetString(reader, "PropertyName", "");
+                            tenant.IsActive = GetInt32(reader, "IsActive", 1) == 1;
+                            tenant.NationalId = GetString(reader, "NationalId", "");
+                            tenant.Address = GetString(reader, "Address", "");
+                            tenant.EmergencyContact = GetString(reader, "EmergencyContact", "");
+                            tenant.EmergencyPhone = GetString(reader, "EmergencyPhone", "");
+
+                            // Handle nullable dates
+                            tenant.LeaseStartDate = GetNullableDateTime(reader, "LeaseStartDate");
+                            tenant.LeaseEndDate = GetNullableDateTime(reader, "LeaseEndDate");
+                            tenant.DateOfBirth = GetNullableDateTime(reader, "DateOfBirth");
+                            tenant.CreatedDate = GetDateTime(reader, "CreatedDate", DateTime.Now);
+
+                            // Handle nullable decimal
+                            tenant.RentAmount = GetNullableDecimal(reader, "RentAmount");
+
+                            tenants.Add(tenant);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading tenants: {ex.Message}");
             }
             return tenants;
         }
 
+        public Tenant GetById(int id)
+        {
+            try
+            {
+                using (var connection = new SQLiteConnection(_connectionString))
+                {
+                    connection.Open();
+                    using (var command = new SQLiteCommand("SELECT * FROM Tenants WHERE Id = @Id", connection))
+                    {
+                        command.Parameters.AddWithValue("@Id", id);
+                        using (var reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                var tenant = new Tenant();
+
+                                tenant.Id = GetInt32(reader, "Id", 0);
+                                tenant.FirstName = GetString(reader, "FirstName", "");
+                                tenant.LastName = GetString(reader, "LastName", "");
+                                tenant.Email = GetString(reader, "Email", "");
+                                tenant.Phone = GetString(reader, "Phone", "");
+                                tenant.UnitNumber = GetString(reader, "UnitNumber", "");
+                                tenant.PropertyName = GetString(reader, "PropertyName", "");
+                                tenant.IsActive = GetInt32(reader, "IsActive", 1) == 1;
+                                tenant.NationalId = GetString(reader, "NationalId", "");
+                                tenant.Address = GetString(reader, "Address", "");
+                                tenant.EmergencyContact = GetString(reader, "EmergencyContact", "");
+                                tenant.EmergencyPhone = GetString(reader, "EmergencyPhone", "");
+
+                                tenant.LeaseStartDate = GetNullableDateTime(reader, "LeaseStartDate");
+                                tenant.LeaseEndDate = GetNullableDateTime(reader, "LeaseEndDate");
+                                tenant.DateOfBirth = GetNullableDateTime(reader, "DateOfBirth");
+                                tenant.CreatedDate = GetDateTime(reader, "CreatedDate", DateTime.Now);
+                                tenant.RentAmount = GetNullableDecimal(reader, "RentAmount");
+
+                                return tenant;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading tenant: {ex.Message}");
+            }
+            return null;
+        }
+
         public void Add(Tenant tenant)
         {
-            using var connection = new SQLiteConnection(_connectionString);
-            connection.Open();
+            try
+            {
+                using (var connection = new SQLiteConnection(_connectionString))
+                {
+                    connection.Open();
+                    using (var command = new SQLiteCommand(@"
+                        INSERT INTO Tenants 
+                        (FirstName, LastName, Email, Phone, UnitNumber, PropertyName, IsActive, LeaseStartDate, LeaseEndDate, RentAmount, CreatedDate, DateOfBirth, NationalId, Address, EmergencyContact, EmergencyPhone)
+                        VALUES 
+                        (@FirstName, @LastName, @Email, @Phone, @UnitNumber, @PropertyName, @IsActive, @LeaseStartDate, @LeaseEndDate, @RentAmount, @CreatedDate, @DateOfBirth, @NationalId, @Address, @EmergencyContact, @EmergencyPhone)", connection))
+                    {
+                        command.Parameters.AddWithValue("@FirstName", tenant.FirstName ?? "");
+                        command.Parameters.AddWithValue("@LastName", tenant.LastName ?? "");
+                        command.Parameters.AddWithValue("@Email", tenant.Email ?? "");
+                        command.Parameters.AddWithValue("@Phone", tenant.Phone ?? "");
+                        command.Parameters.AddWithValue("@UnitNumber", tenant.UnitNumber ?? "");
+                        command.Parameters.AddWithValue("@PropertyName", tenant.PropertyName ?? "");
+                        command.Parameters.AddWithValue("@IsActive", tenant.IsActive ? 1 : 0);
+                        command.Parameters.AddWithValue("@NationalId", tenant.NationalId ?? "");
+                        command.Parameters.AddWithValue("@Address", tenant.Address ?? "");
+                        command.Parameters.AddWithValue("@EmergencyContact", tenant.EmergencyContact ?? "");
+                        command.Parameters.AddWithValue("@EmergencyPhone", tenant.EmergencyPhone ?? "");
+                        command.Parameters.AddWithValue("@LeaseStartDate", (object)tenant.LeaseStartDate ?? DBNull.Value);
+                        command.Parameters.AddWithValue("@LeaseEndDate", (object)tenant.LeaseEndDate ?? DBNull.Value);
+                        command.Parameters.AddWithValue("@DateOfBirth", (object)tenant.DateOfBirth ?? DBNull.Value);
+                        command.Parameters.AddWithValue("@RentAmount", (object)tenant.RentAmount ?? DBNull.Value);
+                        command.Parameters.AddWithValue("@CreatedDate", tenant.CreatedDate);
 
-            const string query = @"INSERT INTO Tenants (FirstName, LastName, Email, Phone, 
-                                 EmergencyContact, EmergencyPhone, NationalId, DateOfBirth, 
-                                 Address, CreatedDate, IsActive) 
-                                 VALUES (@FirstName, @LastName, @Email, @Phone, 
-                                 @EmergencyContact, @EmergencyPhone, @NationalId, @DateOfBirth, 
-                                 @Address, @CreatedDate, @IsActive)";
-
-            using var command = new SQLiteCommand(query, connection);
-            command.Parameters.AddWithValue("@FirstName", tenant.FirstName);
-            command.Parameters.AddWithValue("@LastName", tenant.LastName);
-            command.Parameters.AddWithValue("@Email", tenant.Email ?? string.Empty);
-            command.Parameters.AddWithValue("@Phone", tenant.Phone ?? string.Empty);
-            command.Parameters.AddWithValue("@EmergencyContact", tenant.EmergencyContact ?? string.Empty);
-            command.Parameters.AddWithValue("@EmergencyPhone", tenant.EmergencyPhone ?? string.Empty);
-            command.Parameters.AddWithValue("@NationalId", tenant.NationalId ?? string.Empty);
-            command.Parameters.AddWithValue("@DateOfBirth", tenant.DateOfBirth.ToString("yyyy-MM-dd"));
-            command.Parameters.AddWithValue("@Address", tenant.Address ?? string.Empty);
-            command.Parameters.AddWithValue("@CreatedDate", DateTime.Now.ToString("yyyy-MM-dd"));
-            command.Parameters.AddWithValue("@IsActive", tenant.IsActive ? 1 : 0);
-            command.ExecuteNonQuery();
+                        command.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error adding tenant: {ex.Message}");
+            }
         }
 
         public void Update(Tenant tenant)
         {
-            using var connection = new SQLiteConnection(_connectionString);
-            connection.Open();
+            try
+            {
+                using (var connection = new SQLiteConnection(_connectionString))
+                {
+                    connection.Open();
+                    using (var command = new SQLiteCommand(@"
+                        UPDATE Tenants SET
+                        FirstName = @FirstName,
+                        LastName = @LastName,
+                        Email = @Email,
+                        Phone = @Phone,
+                        UnitNumber = @UnitNumber,
+                        PropertyName = @PropertyName,
+                        IsActive = @IsActive,
+                        LeaseStartDate = @LeaseStartDate,
+                        LeaseEndDate = @LeaseEndDate,
+                        RentAmount = @RentAmount,
+                        CreatedDate = @CreatedDate,
+                        DateOfBirth = @DateOfBirth,
+                        NationalId = @NationalId,
+                        Address = @Address,
+                        EmergencyContact = @EmergencyContact,
+                        EmergencyPhone = @EmergencyPhone
+                        WHERE Id = @Id", connection))
+                    {
+                        command.Parameters.AddWithValue("@Id", tenant.Id);
+                        command.Parameters.AddWithValue("@FirstName", tenant.FirstName ?? "");
+                        command.Parameters.AddWithValue("@LastName", tenant.LastName ?? "");
+                        command.Parameters.AddWithValue("@Email", tenant.Email ?? "");
+                        command.Parameters.AddWithValue("@Phone", tenant.Phone ?? "");
+                        command.Parameters.AddWithValue("@UnitNumber", tenant.UnitNumber ?? "");
+                        command.Parameters.AddWithValue("@PropertyName", tenant.PropertyName ?? "");
+                        command.Parameters.AddWithValue("@IsActive", tenant.IsActive ? 1 : 0);
+                        command.Parameters.AddWithValue("@NationalId", tenant.NationalId ?? "");
+                        command.Parameters.AddWithValue("@Address", tenant.Address ?? "");
+                        command.Parameters.AddWithValue("@EmergencyContact", tenant.EmergencyContact ?? "");
+                        command.Parameters.AddWithValue("@EmergencyPhone", tenant.EmergencyPhone ?? "");
+                        command.Parameters.AddWithValue("@LeaseStartDate", (object)tenant.LeaseStartDate ?? DBNull.Value);
+                        command.Parameters.AddWithValue("@LeaseEndDate", (object)tenant.LeaseEndDate ?? DBNull.Value);
+                        command.Parameters.AddWithValue("@DateOfBirth", (object)tenant.DateOfBirth ?? DBNull.Value);
+                        command.Parameters.AddWithValue("@RentAmount", (object)tenant.RentAmount ?? DBNull.Value);
+                        command.Parameters.AddWithValue("@CreatedDate", tenant.CreatedDate);
 
-            const string query = @"UPDATE Tenants SET FirstName = @FirstName, LastName = @LastName, 
-                                 Email = @Email, Phone = @Phone, 
-                                 EmergencyContact = @EmergencyContact, EmergencyPhone = @EmergencyPhone,
-                                 NationalId = @NationalId, DateOfBirth = @DateOfBirth, 
-                                 Address = @Address, IsActive = @IsActive
-                                 WHERE Id = @Id";
-
-            using var command = new SQLiteCommand(query, connection);
-            command.Parameters.AddWithValue("@Id", tenant.Id);
-            command.Parameters.AddWithValue("@FirstName", tenant.FirstName);
-            command.Parameters.AddWithValue("@LastName", tenant.LastName);
-            command.Parameters.AddWithValue("@Email", tenant.Email ?? string.Empty);
-            command.Parameters.AddWithValue("@Phone", tenant.Phone ?? string.Empty);
-            command.Parameters.AddWithValue("@EmergencyContact", tenant.EmergencyContact ?? string.Empty);
-            command.Parameters.AddWithValue("@EmergencyPhone", tenant.EmergencyPhone ?? string.Empty);
-            command.Parameters.AddWithValue("@NationalId", tenant.NationalId ?? string.Empty);
-            command.Parameters.AddWithValue("@DateOfBirth", tenant.DateOfBirth.ToString("yyyy-MM-dd"));
-            command.Parameters.AddWithValue("@Address", tenant.Address ?? string.Empty);
-            command.Parameters.AddWithValue("@IsActive", tenant.IsActive ? 1 : 0);
-            command.ExecuteNonQuery();
+                        command.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error updating tenant: {ex.Message}");
+            }
         }
 
         public void Delete(int id)
         {
-            using var connection = new SQLiteConnection(_connectionString);
-            connection.Open();
+            try
+            {
+                using (var connection = new SQLiteConnection(_connectionString))
+                {
+                    connection.Open();
+                    using (var command = new SQLiteCommand("DELETE FROM Tenants WHERE Id = @Id", connection))
+                    {
+                        command.Parameters.AddWithValue("@Id", id);
+                        command.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error deleting tenant: {ex.Message}");
+            }
+        }
 
-            const string query = "UPDATE Tenants SET IsActive = 0 WHERE Id = @Id";
+        // Helper methods to safely read data
+        private int GetInt32(SQLiteDataReader reader, string columnName, int defaultValue)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetInt32(ordinal) : defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
 
-            using var command = new SQLiteCommand(query, connection);
-            command.Parameters.AddWithValue("@Id", id);
-            command.ExecuteNonQuery();
+        private string GetString(SQLiteDataReader reader, string columnName, string defaultValue)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetString(ordinal) : defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        private DateTime GetDateTime(SQLiteDataReader reader, string columnName, DateTime defaultValue)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetDateTime(ordinal) : defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        private DateTime? GetNullableDateTime(SQLiteDataReader reader, string columnName)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetDateTime(ordinal) : (DateTime?)null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private decimal? GetNullableDecimal(SQLiteDataReader reader, string columnName)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? (decimal?)reader.GetDecimal(ordinal) : null;
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }

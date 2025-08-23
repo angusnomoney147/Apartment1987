@@ -7,28 +7,15 @@ namespace ApartmentManagementSystem
         public int Id { get; set; }
         public int UnitId { get; set; }
         public int TenantId { get; set; }
-        public string Description { get; set; } = string.Empty;
+        public string UnitNumber { get; set; }
+        public string PropertyName { get; set; }
+        public string TenantName { get; set; }
+        public string Description { get; set; }
         public MaintenancePriority Priority { get; set; }
         public MaintenanceStatus Status { get; set; }
         public DateTime RequestDate { get; set; }
         public DateTime? CompletedDate { get; set; }
         public decimal? Cost { get; set; }
-        public string AssignedTo { get; set; } = string.Empty;
-    }
-
-    public enum MaintenancePriority
-    {
-        Low,
-        Medium,
-        High,
-        Emergency
-    }
-
-    public enum MaintenanceStatus
-    {
-        Pending,
-        InProgress,
-        Completed,
-        Cancelled
+        public string AssignedTo { get; set; }
     }
 }

@@ -4,14 +4,19 @@
     {
         public static string GetPriorityName(MaintenancePriority priority)
         {
-            return priority switch
+            switch (priority)
             {
-                MaintenancePriority.Low => "Low",
-                MaintenancePriority.Medium => "Medium",
-                MaintenancePriority.High => "High",
-                MaintenancePriority.Emergency => "Emergency",
-                _ => "Unknown"
-            };
+                case MaintenancePriority.Low:
+                    return "Low";
+                case MaintenancePriority.Medium:
+                    return "Medium";
+                case MaintenancePriority.High:
+                    return "High";
+                case MaintenancePriority.Urgent:
+                    return "Urgent";
+                default:
+                    return priority.ToString();
+            }
         }
     }
 }
