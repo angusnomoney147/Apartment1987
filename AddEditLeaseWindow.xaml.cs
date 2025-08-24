@@ -104,15 +104,15 @@ namespace ApartmentManagementSystem
                 if (_lease == null)
                     _lease = new Lease();
 
-                _lease.UnitId = (int)CmbUnits.SelectedValue;
                 _lease.TenantId = (int)CmbTenants.SelectedValue;
+                _lease.UnitId = (int)CmbUnits.SelectedValue;
                 _lease.StartDate = DpStartDate.SelectedDate ?? DateTime.Now;
                 _lease.EndDate = DpEndDate.SelectedDate ?? DateTime.Now.AddYears(1);
                 _lease.MonthlyRent = decimal.TryParse(TxtMonthlyRent.Text, out decimal monthlyRent) ? monthlyRent : 0;
                 _lease.SecurityDeposit = decimal.TryParse(TxtSecurityDeposit.Text, out decimal securityDeposit) ? securityDeposit : 0;
-                _lease.Terms = string.IsNullOrWhiteSpace(TxtTerms.Text) ? null : TxtTerms.Text.Trim();
-                _lease.Status = (LeaseStatus)CmbStatus.SelectedValue;
-                _lease.CreatedDate = _isEditMode ? _lease.CreatedDate : DateTime.Now;
+                _lease.Terms = TxtTerms.Text.Trim();
+                _lease.Status = LeaseStatus.Active;
+                _lease.CreatedDate = DateTime.Now;
 
                 if (_isEditMode)
                 {
@@ -124,22 +124,14 @@ namespace ApartmentManagementSystem
                 {
                     _leaseRepository.Add(_lease);
 
-                    // AUTOMATICALLY UPDATE UNIT STATUS TO OCCUPIED
-                    UpdateUnitStatusToOccupied(_lease.UnitId);
+                    // Automatically create first pending payment
+                    CreateInitialPayment(_lease);
 
-                    MessageBox.Show("Lease added successfully! Unit status automatically updated to Occupied.", "Success",
+                    // Update unit status to Occupied
+                    UpdateUnitStatus(_lease.UnitId, UnitStatus.Occupied);
+
+                    MessageBox.Show("Lease added successfully! Initial payment created.", "Success",
                                   MessageBoxButton.OK, MessageBoxImage.Information);
-
-                    // Ask if they want to generate lease agreement
-                    var result = MessageBox.Show("Would you like to generate a lease agreement?",
-                                               "Generate Agreement",
-                                               MessageBoxButton.YesNo,
-                                               MessageBoxImage.Question);
-
-                    if (result == MessageBoxResult.Yes)
-                    {
-                        GenerateLeaseAgreement(_lease);
-                    }
                 }
 
                 this.DialogResult = true;
@@ -152,28 +144,44 @@ namespace ApartmentManagementSystem
             }
         }
 
-        // Add this new method for automatic unit status update
-        private void UpdateUnitStatusToOccupied(int unitId)
+        private void CreateInitialPayment(Lease lease)
+        {
+            try
+            {
+                var payment = new Payment
+                {
+                    LeaseId = lease.Id,
+                    Amount = lease.MonthlyRent,
+                    PaymentDate = DateTime.Now,
+                    DueDate = lease.StartDate.AddMonths(1), // Due next month
+                    Status = PaymentStatus.Pending,
+                    Method = PaymentMethod.Other, // Default to Other, can be changed later
+                    ReferenceNumber = $"LEASE-{lease.Id}-001",
+                    Notes = "Initial rent payment for new lease",
+                    CreatedDate = DateTime.Now
+                };
+
+                var paymentRepository = new PaymentRepository();
+                paymentRepository.Add(payment);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error creating initial payment: {ex.Message}", "Warning",
+                              MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        private void UpdateUnitStatus(int unitId, UnitStatus status)
         {
             try
             {
                 var unitRepository = new UnitRepository();
-                var unit = unitRepository.GetAll().FirstOrDefault(u => u.Id == unitId);
-
-                if (unit != null && unit.Status != UnitStatus.Occupied)
-                {
-                    var oldStatus = unit.Status;
-                    unit.Status = UnitStatus.Occupied;
-                    unitRepository.Update(unit);
-
-                    // Log the status change in recent activity
-                    LogUnitStatusChange(unit.UnitNumber, oldStatus, UnitStatus.Occupied);
-                }
+                unitRepository.UpdateUnitStatus(unitId, status);
             }
             catch (Exception ex)
             {
-                // Log error silently - don't interrupt the main flow
-                System.Diagnostics.Debug.WriteLine($"Error updating unit status: {ex.Message}");
+                MessageBox.Show($"Error updating unit status: {ex.Message}", "Warning",
+                              MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 

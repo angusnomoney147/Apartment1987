@@ -27,16 +27,16 @@ namespace ApartmentManagementSystem
             {
                 payments.Add(new Payment
                 {
-                    Id = Convert.ToInt32(reader["Id"]),
-                    LeaseId = Convert.ToInt32(reader["LeaseId"]),
-                    Amount = Convert.ToDecimal(reader["Amount"] ?? 0),
-                    PaymentDate = Convert.ToDateTime(reader["PaymentDate"]),
-                    Method = (PaymentMethod)Convert.ToInt32(reader["PaymentMethod"] ?? 0),
-                    ReferenceNumber = reader["ReferenceNumber"]?.ToString() ?? string.Empty,
-                    Status = (PaymentStatus)Convert.ToInt32(reader["Status"] ?? 0),
-                    Notes = reader["Notes"]?.ToString() ?? string.Empty,
-                    DueDate = reader["DueDate"] == DBNull.Value ? (DateTime?)null : Convert.ToDateTime(reader["DueDate"]),
-                    CreatedDate = reader["CreatedDate"] == DBNull.Value ? DateTime.Now : Convert.ToDateTime(reader["CreatedDate"])
+                    Id = GetInt32(reader, "Id", 0),
+                    LeaseId = GetInt32(reader, "LeaseId", 0),
+                    Amount = GetDecimal(reader, "Amount", 0),
+                    PaymentDate = GetDateTime(reader, "PaymentDate", DateTime.Now),
+                    DueDate = GetNullableDateTime(reader, "DueDate"),
+                    Status = GetEnum<PaymentStatus>(reader, "Status", PaymentStatus.Pending),
+                    Method = GetEnum<PaymentMethod>(reader, "PaymentMethod", PaymentMethod.Other),
+                    ReferenceNumber = GetString(reader, "ReferenceNumber", ""),
+                    Notes = GetString(reader, "Notes", ""),
+                    CreatedDate = GetDateTime(reader, "CreatedDate", DateTime.Now)
                 });
             }
             return payments;
@@ -58,16 +58,16 @@ namespace ApartmentManagementSystem
                             {
                                 return new Payment
                                 {
-                                    Id = Convert.ToInt32(reader["Id"]),
-                                    LeaseId = Convert.ToInt32(reader["LeaseId"]),
-                                    Amount = Convert.ToDecimal(reader["Amount"] ?? 0),
-                                    PaymentDate = Convert.ToDateTime(reader["PaymentDate"]),
-                                    Method = (PaymentMethod)Convert.ToInt32(reader["PaymentMethod"] ?? 0),
-                                    ReferenceNumber = reader["ReferenceNumber"]?.ToString() ?? string.Empty,
-                                    Status = (PaymentStatus)Convert.ToInt32(reader["Status"] ?? 0),
-                                    Notes = reader["Notes"]?.ToString() ?? string.Empty,
-                                    DueDate = reader["DueDate"] == DBNull.Value ? (DateTime?)null : Convert.ToDateTime(reader["DueDate"]),
-                                    CreatedDate = reader["CreatedDate"] == DBNull.Value ? DateTime.Now : Convert.ToDateTime(reader["CreatedDate"])
+                                    Id = GetInt32(reader, "Id", 0),
+                                    LeaseId = GetInt32(reader, "LeaseId", 0),
+                                    Amount = GetDecimal(reader, "Amount", 0),
+                                    PaymentDate = GetDateTime(reader, "PaymentDate", DateTime.Now),
+                                    DueDate = GetNullableDateTime(reader, "DueDate"),
+                                    Status = GetEnum<PaymentStatus>(reader, "Status", PaymentStatus.Pending),
+                                    Method = GetEnum<PaymentMethod>(reader, "PaymentMethod", PaymentMethod.Other),
+                                    ReferenceNumber = GetString(reader, "ReferenceNumber", ""),
+                                    Notes = GetString(reader, "Notes", ""),
+                                    CreatedDate = GetDateTime(reader, "CreatedDate", DateTime.Now)
                                 };
                             }
                         }
@@ -135,6 +135,96 @@ namespace ApartmentManagementSystem
             using var command = new SQLiteCommand(query, connection);
             command.Parameters.AddWithValue("@Id", id);
             command.ExecuteNonQuery();
+        }
+
+        private int GetInt32(SQLiteDataReader reader, string columnName, int defaultValue)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetInt32(ordinal) : defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        private string GetString(SQLiteDataReader reader, string columnName, string defaultValue)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetString(ordinal) : defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        private DateTime GetDateTime(SQLiteDataReader reader, string columnName, DateTime defaultValue)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetDateTime(ordinal) : defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        private DateTime? GetNullableDateTime(SQLiteDataReader reader, string columnName)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetDateTime(ordinal) : (DateTime?)null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private decimal GetDecimal(SQLiteDataReader reader, string columnName, decimal defaultValue)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetDecimal(ordinal) : defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        private T GetEnum<T>(SQLiteDataReader reader, string columnName, T defaultValue) where T : struct
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                if (!reader.IsDBNull(ordinal))
+                {
+                    var value = reader.GetString(ordinal);
+                    if (Enum.TryParse<T>(value, out T result))
+                    {
+                        return result;
+                    }
+                    else if (int.TryParse(value, out int intValue))
+                    {
+                        return (T)Enum.ToObject(typeof(T), intValue);
+                    }
+                }
+                return defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
         }
     }
 }

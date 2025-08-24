@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
+using System.Windows;
 
 namespace ApartmentManagementSystem
 {
@@ -16,29 +17,78 @@ namespace ApartmentManagementSystem
         public List<Lease> GetAll()
         {
             var leases = new List<Lease>();
-            using var connection = new SQLiteConnection(_connectionString);
-            connection.Open();
-
-            using var command = new SQLiteCommand("SELECT * FROM Leases ORDER BY StartDate DESC", connection);
-            using var reader = command.ExecuteReader();
-
-            while (reader.Read())
+            try
             {
-                leases.Add(new Lease
+                using (var connection = new SQLiteConnection(_connectionString))
                 {
-                    Id = Convert.ToInt32(reader["Id"]),
-                    UnitId = Convert.ToInt32(reader["UnitId"]),
-                    TenantId = Convert.ToInt32(reader["TenantId"]),
-                    StartDate = DateTime.Parse(reader["StartDate"]?.ToString() ?? DateTime.Now.ToString()),
-                    EndDate = DateTime.Parse(reader["EndDate"]?.ToString() ?? DateTime.Now.ToString()),
-                    MonthlyRent = Convert.ToDecimal(reader["MonthlyRent"] ?? 0),
-                    SecurityDeposit = Convert.ToDecimal(reader["SecurityDeposit"] ?? 0),
-                    Terms = reader["Terms"]?.ToString() ?? string.Empty,
-                    Status = (LeaseStatus)Convert.ToInt32(reader["Status"] ?? 0),
-                    CreatedDate = DateTime.Parse(reader["CreatedDate"]?.ToString() ?? DateTime.Now.ToString())
-                });
+                    connection.Open();
+                    using (var command = new SQLiteCommand("SELECT * FROM Leases ORDER BY StartDate DESC", connection))
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var lease = new Lease();
+
+                            lease.Id = GetInt32(reader, "Id", 0);
+                            lease.TenantId = GetInt32(reader, "TenantId", 0);
+                            lease.UnitId = GetInt32(reader, "UnitId", 0);
+                            lease.StartDate = GetDateTime(reader, "StartDate", DateTime.Now);
+                            lease.EndDate = GetDateTime(reader, "EndDate", DateTime.Now);
+                            lease.MonthlyRent = GetDecimal(reader, "MonthlyRent", 0);
+                            lease.SecurityDeposit = GetDecimal(reader, "SecurityDeposit", 0);
+                            lease.Terms = GetString(reader, "Terms", "");
+                            lease.CreatedDate = GetDateTime(reader, "CreatedDate", DateTime.Now);
+                            lease.Status = GetEnum<LeaseStatus>(reader, "Status", LeaseStatus.Active);
+
+                            leases.Add(lease);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading leases: {ex.Message}");
             }
             return leases;
+        }
+
+        public Lease GetById(int id)
+        {
+            try
+            {
+                using (var connection = new SQLiteConnection(_connectionString))
+                {
+                    connection.Open();
+                    using (var command = new SQLiteCommand("SELECT * FROM Leases WHERE Id = @Id", connection))
+                    {
+                        command.Parameters.AddWithValue("@Id", id);
+                        using (var reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                return new Lease
+                                {
+                                    Id = GetInt32(reader, "Id", 0),
+                                    TenantId = GetInt32(reader, "TenantId", 0),
+                                    UnitId = GetInt32(reader, "UnitId", 0),
+                                    StartDate = GetDateTime(reader, "StartDate", DateTime.Now),
+                                    EndDate = GetDateTime(reader, "EndDate", DateTime.Now),
+                                    MonthlyRent = GetDecimal(reader, "MonthlyRent", 0),
+                                    SecurityDeposit = GetDecimal(reader, "SecurityDeposit", 0),
+                                    Terms = GetString(reader, "Terms", ""),
+                                    Status = GetEnum<LeaseStatus>(reader, "Status", LeaseStatus.Active),
+                                    CreatedDate = GetDateTime(reader, "CreatedDate", DateTime.Now)
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading lease: {ex.Message}");
+            }
+            return null;
         }
 
         public void Add(Lease lease)
@@ -46,22 +96,25 @@ namespace ApartmentManagementSystem
             using var connection = new SQLiteConnection(_connectionString);
             connection.Open();
 
-            const string query = @"INSERT INTO Leases (UnitId, TenantId, StartDate, EndDate, 
-                                 MonthlyRent, SecurityDeposit, Terms, Status, CreatedDate) 
-                                 VALUES (@UnitId, @TenantId, @StartDate, @EndDate, 
-                                 @MonthlyRent, @SecurityDeposit, @Terms, @Status, @CreatedDate)";
+            const string query = @"INSERT INTO Leases 
+                                (TenantId, UnitId, StartDate, EndDate, MonthlyRent, SecurityDeposit, Terms, Status, CreatedDate)
+                                VALUES 
+                                (@TenantId, @UnitId, @StartDate, @EndDate, @MonthlyRent, @SecurityDeposit, @Terms, @Status, @CreatedDate);
+                                SELECT last_insert_rowid();";
 
             using var command = new SQLiteCommand(query, connection);
-            command.Parameters.AddWithValue("@UnitId", lease.UnitId);
             command.Parameters.AddWithValue("@TenantId", lease.TenantId);
-            command.Parameters.AddWithValue("@StartDate", lease.StartDate.ToString("yyyy-MM-dd"));
-            command.Parameters.AddWithValue("@EndDate", lease.EndDate.ToString("yyyy-MM-dd"));
+            command.Parameters.AddWithValue("@UnitId", lease.UnitId);
+            command.Parameters.AddWithValue("@StartDate", lease.StartDate);
+            command.Parameters.AddWithValue("@EndDate", lease.EndDate);
             command.Parameters.AddWithValue("@MonthlyRent", lease.MonthlyRent);
             command.Parameters.AddWithValue("@SecurityDeposit", lease.SecurityDeposit);
-            command.Parameters.AddWithValue("@Terms", lease.Terms ?? string.Empty);
-            command.Parameters.AddWithValue("@Status", (int)lease.Status);
-            command.Parameters.AddWithValue("@CreatedDate", DateTime.Now.ToString("yyyy-MM-dd"));
-            command.ExecuteNonQuery();
+            command.Parameters.AddWithValue("@Terms", lease.Terms ?? "");
+            command.Parameters.AddWithValue("@Status", lease.Status.ToString());
+            command.Parameters.AddWithValue("@CreatedDate", lease.CreatedDate);
+
+            var result = command.ExecuteScalar();
+            lease.Id = Convert.ToInt32(result);
         }
 
         public void Update(Lease lease)
@@ -69,22 +122,21 @@ namespace ApartmentManagementSystem
             using var connection = new SQLiteConnection(_connectionString);
             connection.Open();
 
-            const string query = @"UPDATE Leases SET UnitId = @UnitId, TenantId = @TenantId, 
-                                 StartDate = @StartDate, EndDate = @EndDate, 
-                                 MonthlyRent = @MonthlyRent, SecurityDeposit = @SecurityDeposit,
-                                 Terms = @Terms, Status = @Status
+            const string query = @"UPDATE Leases SET TenantId = @TenantId, UnitId = @UnitId, 
+                                 StartDate = @StartDate, EndDate = @EndDate, MonthlyRent = @MonthlyRent,
+                                 SecurityDeposit = @SecurityDeposit, Terms = @Terms, Status = @Status
                                  WHERE Id = @Id";
 
             using var command = new SQLiteCommand(query, connection);
             command.Parameters.AddWithValue("@Id", lease.Id);
-            command.Parameters.AddWithValue("@UnitId", lease.UnitId);
             command.Parameters.AddWithValue("@TenantId", lease.TenantId);
-            command.Parameters.AddWithValue("@StartDate", lease.StartDate.ToString("yyyy-MM-dd"));
-            command.Parameters.AddWithValue("@EndDate", lease.EndDate.ToString("yyyy-MM-dd"));
+            command.Parameters.AddWithValue("@UnitId", lease.UnitId);
+            command.Parameters.AddWithValue("@StartDate", lease.StartDate);
+            command.Parameters.AddWithValue("@EndDate", lease.EndDate);
             command.Parameters.AddWithValue("@MonthlyRent", lease.MonthlyRent);
             command.Parameters.AddWithValue("@SecurityDeposit", lease.SecurityDeposit);
-            command.Parameters.AddWithValue("@Terms", lease.Terms ?? string.Empty);
-            command.Parameters.AddWithValue("@Status", (int)lease.Status);
+            command.Parameters.AddWithValue("@Terms", lease.Terms ?? "");
+            command.Parameters.AddWithValue("@Status", lease.Status.ToString());
             command.ExecuteNonQuery();
         }
 
@@ -98,6 +150,83 @@ namespace ApartmentManagementSystem
             using var command = new SQLiteCommand(query, connection);
             command.Parameters.AddWithValue("@Id", id);
             command.ExecuteNonQuery();
+        }
+
+        private int GetInt32(SQLiteDataReader reader, string columnName, int defaultValue)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetInt32(ordinal) : defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        private string GetString(SQLiteDataReader reader, string columnName, string defaultValue)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetString(ordinal) : defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        private DateTime GetDateTime(SQLiteDataReader reader, string columnName, DateTime defaultValue)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetDateTime(ordinal) : defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        private decimal GetDecimal(SQLiteDataReader reader, string columnName, decimal defaultValue)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetDecimal(ordinal) : defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        private T GetEnum<T>(SQLiteDataReader reader, string columnName, T defaultValue) where T : struct
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                if (!reader.IsDBNull(ordinal))
+                {
+                    var value = reader.GetString(ordinal);
+                    if (Enum.TryParse<T>(value, out T result))
+                    {
+                        return result;
+                    }
+                    else if (int.TryParse(value, out int intValue))
+                    {
+                        return (T)Enum.ToObject(typeof(T), intValue);
+                    }
+                }
+                return defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
         }
     }
 }

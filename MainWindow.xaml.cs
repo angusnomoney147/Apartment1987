@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace ApartmentManagementSystem
 {
@@ -13,7 +14,9 @@ namespace ApartmentManagementSystem
         private readonly LeaseRepository _leaseRepository;
         private readonly PaymentRepository _paymentRepository;
         private readonly MaintenanceRepository _maintenanceRepository;
-        private System.Windows.Threading.DispatcherTimer _autoRefreshTimer;
+
+        // Event to notify when data changes
+        public static event EventHandler DataChanged;
 
         public MainWindow()
         {
@@ -25,22 +28,23 @@ namespace ApartmentManagementSystem
             _leaseRepository = new LeaseRepository();
             _paymentRepository = new PaymentRepository();
             _maintenanceRepository = new MaintenanceRepository();
-            InitializeAutoRefresh();
+
+            // Subscribe to data change events
+            SubscribeToDataChanges();
+
             LoadDashboardData();
         }
 
-        private void InitializeAutoRefresh()
+        private void SubscribeToDataChanges()
         {
-            _autoRefreshTimer = new System.Windows.Threading.DispatcherTimer();
-            _autoRefreshTimer.Interval = TimeSpan.FromSeconds(1);
-            _autoRefreshTimer.Tick += (sender, e) => LoadDashboardData();
-            _autoRefreshTimer.Start();
+            // Subscribe to the global data changed event
+            DataChanged += (sender, e) => LoadDashboardData();
         }
 
-        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        // Call this method whenever data changes
+        public static void NotifyDataChanged()
         {
-            _autoRefreshTimer?.Stop();
-            base.OnClosing(e);
+            DataChanged?.Invoke(null, EventArgs.Empty);
         }
 
         public void ManualRefresh()
@@ -53,7 +57,7 @@ namespace ApartmentManagementSystem
             try
             {
                 LoadStatistics();
-                LoadRecentActivity(); // Remove the parameters
+                LoadRecentActivity();
                 LoadVacantUnits();
                 LoadOccupiedUnits();
                 LoadTenantActivity();
@@ -149,28 +153,39 @@ namespace ApartmentManagementSystem
                 var maintenanceRequests = _maintenanceRepository.GetAll();
                 var payments = _paymentRepository.GetAll();
 
-                TxtTotalProperties.Text = properties.Count.ToString();
-                TxtTotalUnits.Text = units.Count.ToString();
+                // Use safe conversion with default values
+                TxtTotalProperties.Text = properties?.Count.ToString() ?? "0";
+                TxtTotalUnits.Text = units?.Count.ToString() ?? "0";
 
-                var occupiedUnits = units.Count(u => u.Status == UnitStatus.Occupied);
+                var occupiedUnits = units?.Count(u => u.Status == UnitStatus.Occupied) ?? 0;
                 TxtOccupiedUnits.Text = occupiedUnits.ToString();
 
-                var vacantUnits = units.Count(u => u.Status == UnitStatus.Vacant);
+                var vacantUnits = units?.Count(u => u.Status == UnitStatus.Vacant) ?? 0;
                 TxtVacantUnits.Text = vacantUnits.ToString();
 
-                var pendingMaintenance = maintenanceRequests.Count(m => m.Status == MaintenanceStatus.Pending || m.Status == MaintenanceStatus.InProgress);
+                var pendingMaintenance = maintenanceRequests?.Count(m =>
+                    m.Status == MaintenanceStatus.Pending || m.Status == MaintenanceStatus.InProgress) ?? 0;
                 TxtPendingMaintenance.Text = pendingMaintenance.ToString();
 
-                var overduePayments = payments.Count(p => p.Status == PaymentStatus.Overdue);
+                var overduePayments = payments?.Count(p => p.Status == PaymentStatus.Overdue) ?? 0;
                 TxtOverduePayments.Text = overduePayments.ToString();
 
-                var activeLeases = leases.Count(l => l.Status == LeaseStatus.Active);
+                var activeLeases = leases?.Count(l => l.Status == LeaseStatus.Active) ?? 0;
                 TxtActiveLeases.Text = activeLeases.ToString();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error loading statistics: {ex.Message}", "Error",
-                              MessageBoxButton.OK, MessageBoxImage.Error);
+                // Set default values when there's an error
+                TxtTotalProperties.Text = "0";
+                TxtTotalUnits.Text = "0";
+                TxtOccupiedUnits.Text = "0";
+                TxtVacantUnits.Text = "0";
+                TxtPendingMaintenance.Text = "0";
+                TxtOverduePayments.Text = "0";
+                TxtActiveLeases.Text = "0";
+
+                // Log the error but don't show message to user to avoid spam
+                Console.WriteLine($"Error loading statistics: {ex.Message}");
             }
         }
 
@@ -184,16 +199,18 @@ namespace ApartmentManagementSystem
                 var vacantUnits = units.Select(u => new
                 {
                     PropertyName = GetPropertyName(u.PropertyId, properties),
-                    u.UnitNumber,
-                    u.UnitType,
-                    u.RentAmount,
-                    u.Bedrooms
+                    UnitNumber = u.UnitNumber ?? "Unknown",
+                    UnitType = u.UnitType ?? "N/A",
+                    RentAmount = u.RentAmount,
+                    Bedrooms = u.Bedrooms
                 }).ToList();
 
                 DataGridVacantUnits.ItemsSource = vacantUnits;
             }
             catch (Exception ex)
             {
+                DataGridVacantUnits.ItemsSource = new List<object>();
+                Console.WriteLine($"Error loading vacant units: {ex.Message}");
             }
         }
 
@@ -214,7 +231,7 @@ namespace ApartmentManagementSystem
                     return new
                     {
                         PropertyName = GetPropertyName(u.PropertyId, properties),
-                        u.UnitNumber,
+                        UnitNumber = u.UnitNumber ?? "Unknown",
                         TenantName = tenant?.FullName ?? "Unknown Tenant",
                         LeaseStart = lease?.StartDate ?? DateTime.MinValue,
                         MonthlyRent = lease?.MonthlyRent ?? 0,
@@ -226,6 +243,8 @@ namespace ApartmentManagementSystem
             }
             catch (Exception ex)
             {
+                DataGridOccupiedUnits.ItemsSource = new List<object>();
+                Console.WriteLine($"Error loading occupied units: {ex.Message}");
             }
         }
 
@@ -298,8 +317,15 @@ namespace ApartmentManagementSystem
 
         private string GetPropertyName(int propertyId, List<Property> properties)
         {
-            var property = properties.FirstOrDefault(p => p.Id == propertyId);
-            return property?.Name ?? "Unknown Property";
+            try
+            {
+                var property = properties?.FirstOrDefault(p => p.Id == propertyId);
+                return property?.Name ?? "Unknown Property";
+            }
+            catch
+            {
+                return "Unknown Property";
+            }
         }
 
         private void btnTenants_Click(object sender, RoutedEventArgs e)
@@ -380,8 +406,8 @@ namespace ApartmentManagementSystem
                 var leases = _leaseRepository.GetAll();
                 var tenants = _tenantRepository.GetAll();
                 var reportContent = ReportHelper.GenerateFinancialReport(payments, leases, tenants);
-                var reportWindow = new ReportViewerWindow("Financial Report", reportContent);
-                reportWindow.Show();
+                var financialReportWindow = new EnhancedFinancialReportWindow();
+                financialReportWindow.Show();
             }
             catch (Exception ex)
             {

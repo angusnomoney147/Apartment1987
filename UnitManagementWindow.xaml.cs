@@ -91,15 +91,22 @@ namespace ApartmentManagementSystem
 
         private void BtnAddUnit_Click(object sender, RoutedEventArgs e)
         {
+            // Check if a property is selected first
             if (CmbProperties.SelectedValue != null)
             {
                 int propertyId = (int)CmbProperties.SelectedValue;
+                // Pass the property ID to the AddEditUnitWindow constructor
                 var addUnitWindow = new AddEditUnitWindow(propertyId);
                 if (addUnitWindow.ShowDialog() == true)
                 {
                     LoadUnits(propertyId);
-                    NotifyParentOfChanges();
+                    MainWindow.NotifyDataChanged(); // Notify main window
                 }
+            }
+            else
+            {
+                MessageBox.Show("Please select a property first.", "Information",
+                              MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
@@ -123,6 +130,7 @@ namespace ApartmentManagementSystem
                             {
                                 int propertyId = (int)CmbProperties.SelectedValue;
                                 LoadUnits(propertyId);
+                                MainWindow.NotifyDataChanged(); // Notify main window
                             }
                             NotifyParentOfChanges();
                         }
@@ -163,6 +171,7 @@ namespace ApartmentManagementSystem
                                 {
                                     int propertyId = (int)CmbProperties.SelectedValue;
                                     LoadUnits(propertyId);
+                                    MainWindow.NotifyDataChanged(); // Notify main window
                                 }
                                 NotifyParentOfChanges();
                                 MessageBox.Show("Unit deleted successfully!", "Success",

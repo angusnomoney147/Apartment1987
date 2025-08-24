@@ -47,9 +47,8 @@ namespace ApartmentManagementSystem
             var addPropertyWindow = new AddEditPropertyWindow();
             if (addPropertyWindow.ShowDialog() == true)
             {
-                LoadProperties(); // Refresh the list
-                TxtStatus.Text = "Property added successfully";
-                NotifyParentOfChanges(); // Add this line
+                LoadProperties();
+                MainWindow.NotifyDataChanged(); // Notify main window
             }
         }
 
@@ -61,9 +60,8 @@ namespace ApartmentManagementSystem
                 var editPropertyWindow = new AddEditPropertyWindow(selectedProperty);
                 if (editPropertyWindow.ShowDialog() == true)
                 {
-                    LoadProperties(); // Refresh the list
-                    TxtStatus.Text = "Property updated successfully";
-                    NotifyParentOfChanges(); // Add this line
+                    LoadProperties();
+                    MainWindow.NotifyDataChanged(); // Notify main window
                 }
             }
             else
@@ -87,10 +85,10 @@ namespace ApartmentManagementSystem
                 {
                     try
                     {
+                        // Use selectedProperty instead of propertyToDelete
                         _propertyRepository.Delete(selectedProperty.Id);
-                        LoadProperties(); // Refresh the list
-                        TxtStatus.Text = "Property deleted successfully";
-                        NotifyParentOfChanges(); // Add this line
+                        LoadProperties();
+                        MainWindow.NotifyDataChanged(); // Notify main window
                         MessageBox.Show("Property deleted successfully!", "Success",
                                       MessageBoxButton.OK, MessageBoxImage.Information);
                     }

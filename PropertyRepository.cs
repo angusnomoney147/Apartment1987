@@ -97,36 +97,29 @@ namespace ApartmentManagementSystem
 
         public void Add(Property property)
         {
-            try
-            {
-                using (var connection = new SQLiteConnection(_connectionString))
-                {
-                    connection.Open();
-                    using (var command = new SQLiteCommand(@"
-                        INSERT INTO Properties 
+            using var connection = new SQLiteConnection(_connectionString);
+            connection.Open();
+
+            const string query = @"INSERT INTO Properties 
                         (Name, Address, City, State, ZipCode, Country, ManagerName, ContactInfo, TotalUnits, CreatedDate)
                         VALUES 
-                        (@Name, @Address, @City, @State, @ZipCode, @Country, @ManagerName, @ContactInfo, @TotalUnits, @CreatedDate)", connection))
-                    {
-                        command.Parameters.AddWithValue("@Name", property.Name ?? "");
-                        command.Parameters.AddWithValue("@Address", property.Address ?? "");
-                        command.Parameters.AddWithValue("@City", property.City ?? "");
-                        command.Parameters.AddWithValue("@State", property.State ?? "");
-                        command.Parameters.AddWithValue("@ZipCode", property.ZipCode ?? "");
-                        command.Parameters.AddWithValue("@Country", property.Country ?? "");
-                        command.Parameters.AddWithValue("@ManagerName", property.ManagerName ?? "");
-                        command.Parameters.AddWithValue("@ContactInfo", property.ContactInfo ?? "");
-                        command.Parameters.AddWithValue("@TotalUnits", property.TotalUnits);
-                        command.Parameters.AddWithValue("@CreatedDate", property.CreatedDate);
+                        (@Name, @Address, @City, @State, @ZipCode, @Country, @ManagerName, @ContactInfo, @TotalUnits, @CreatedDate);
+                        SELECT last_insert_rowid();";
 
-                        command.ExecuteNonQuery();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error adding property: {ex.Message}");
-            }
+            using var command = new SQLiteCommand(query, connection);
+            command.Parameters.AddWithValue("@Name", property.Name ?? "");
+            command.Parameters.AddWithValue("@Address", property.Address ?? "");
+            command.Parameters.AddWithValue("@City", property.City ?? "");
+            command.Parameters.AddWithValue("@State", property.State ?? "");
+            command.Parameters.AddWithValue("@ZipCode", property.ZipCode ?? "");
+            command.Parameters.AddWithValue("@Country", property.Country ?? "");
+            command.Parameters.AddWithValue("@ManagerName", property.ManagerName ?? "");
+            command.Parameters.AddWithValue("@ContactInfo", property.ContactInfo ?? "");
+            command.Parameters.AddWithValue("@TotalUnits", property.TotalUnits);
+            command.Parameters.AddWithValue("@CreatedDate", property.CreatedDate);
+
+            var result = command.ExecuteScalar();
+            property.Id = Convert.ToInt32(result);
         }
 
         public void Update(Property property)

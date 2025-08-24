@@ -53,6 +53,7 @@ namespace ApartmentManagementSystem
             if (addTenantWindow.ShowDialog() == true)
             {
                 LoadTenants();
+                MainWindow.NotifyDataChanged(); // Notify main window
             }
         }
 
@@ -73,6 +74,7 @@ namespace ApartmentManagementSystem
                         if (editTenantWindow.ShowDialog() == true)
                         {
                             LoadTenants();
+                            MainWindow.NotifyDataChanged(); // Notify main window
                         }
                     }
                 }
@@ -101,15 +103,14 @@ namespace ApartmentManagementSystem
                                                    "Confirm Delete",
                                                    MessageBoxButton.YesNo,
                                                    MessageBoxImage.Question);
-
                         if (result == MessageBoxResult.Yes)
                         {
                             try
                             {
                                 _tenantRepository.Delete(tenantToDelete.Id);
                                 LoadTenants();
-                                MessageBox.Show("Tenant deleted successfully!", "Success",
-                                              MessageBoxButton.OK, MessageBoxImage.Information);
+                                MainWindow.NotifyDataChanged(); // Notify main window
+                                                                // Removed the incomplete comment " // ... rest of method"
                             }
                             catch (Exception ex)
                             {

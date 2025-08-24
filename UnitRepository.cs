@@ -27,17 +27,17 @@ namespace ApartmentManagementSystem
             {
                 units.Add(new Unit
                 {
-                    Id = Convert.ToInt32(reader["Id"]),
-                    PropertyId = Convert.ToInt32(reader["PropertyId"]),
-                    UnitNumber = reader["UnitNumber"].ToString() ?? string.Empty,
-                    UnitType = reader["UnitType"]?.ToString() ?? string.Empty,
-                    Size = Convert.ToDecimal(reader["Size"] ?? 0),
-                    RentAmount = Convert.ToDecimal(reader["RentAmount"] ?? 0),
-                    Description = reader["Description"]?.ToString() ?? string.Empty,
-                    Status = (UnitStatus)Convert.ToInt32(reader["Status"] ?? 0),
-                    Bedrooms = Convert.ToInt32(reader["Bedrooms"] ?? 0),
-                    Bathrooms = Convert.ToInt32(reader["Bathrooms"] ?? 0),
-                    CreatedDate = reader["CreatedDate"] == DBNull.Value ? DateTime.Now : Convert.ToDateTime(reader["CreatedDate"])
+                    Id = GetInt32(reader, "Id", 0),
+                    PropertyId = GetInt32(reader, "PropertyId", 0),
+                    UnitNumber = GetString(reader, "UnitNumber", ""),
+                    UnitType = GetString(reader, "UnitType", ""),
+                    Size = GetDecimal(reader, "Size", 0),
+                    RentAmount = GetDecimal(reader, "RentAmount", 0),
+                    Description = GetString(reader, "Description", ""),
+                    Status = GetEnum<UnitStatus>(reader, "Status", UnitStatus.Vacant),
+                    Bedrooms = GetInt32(reader, "Bedrooms", 0),
+                    Bathrooms = GetInt32(reader, "Bathrooms", 0),
+                    CreatedDate = GetDateTime(reader, "CreatedDate", DateTime.Now)
                 });
             }
             return units;
@@ -59,17 +59,17 @@ namespace ApartmentManagementSystem
                             {
                                 return new Unit
                                 {
-                                    Id = Convert.ToInt32(reader["Id"]),
-                                    PropertyId = Convert.ToInt32(reader["PropertyId"]),
-                                    UnitNumber = reader["UnitNumber"].ToString(),
-                                    UnitType = reader["UnitType"]?.ToString(),
-                                    Size = reader["Size"] == DBNull.Value ? 0 : Convert.ToDecimal(reader["Size"]),
-                                    RentAmount = reader["RentAmount"] == DBNull.Value ? 0 : Convert.ToDecimal(reader["RentAmount"]),
-                                    Bedrooms = reader["Bedrooms"] == DBNull.Value ? 0 : Convert.ToInt32(reader["Bedrooms"]),
-                                    Bathrooms = reader["Bathrooms"] == DBNull.Value ? 0 : Convert.ToInt32(reader["Bathrooms"]),
-                                    Description = reader["Description"]?.ToString(),
-                                    Status = (UnitStatus)Convert.ToInt32(reader["Status"]),
-                                    CreatedDate = reader["CreatedDate"] == DBNull.Value ? DateTime.Now : Convert.ToDateTime(reader["CreatedDate"])
+                                    Id = GetInt32(reader, "Id", 0),
+                                    PropertyId = GetInt32(reader, "PropertyId", 0),
+                                    UnitNumber = GetString(reader, "UnitNumber", ""),
+                                    UnitType = GetString(reader, "UnitType", ""),
+                                    Size = GetDecimal(reader, "Size", 0),
+                                    RentAmount = GetDecimal(reader, "RentAmount", 0),
+                                    Bedrooms = GetInt32(reader, "Bedrooms", 0),
+                                    Bathrooms = GetInt32(reader, "Bathrooms", 0),
+                                    Description = GetString(reader, "Description", ""),
+                                    Status = GetEnum<UnitStatus>(reader, "Status", UnitStatus.Vacant),
+                                    CreatedDate = GetDateTime(reader, "CreatedDate", DateTime.Now)
                                 };
                             }
                         }
@@ -134,17 +134,17 @@ namespace ApartmentManagementSystem
             {
                 units.Add(new Unit
                 {
-                    Id = Convert.ToInt32(reader["Id"]),
-                    PropertyId = Convert.ToInt32(reader["PropertyId"]),
-                    UnitNumber = reader["UnitNumber"].ToString() ?? string.Empty,
-                    UnitType = reader["UnitType"]?.ToString() ?? string.Empty,
-                    Size = Convert.ToDecimal(reader["Size"] ?? 0),
-                    RentAmount = Convert.ToDecimal(reader["RentAmount"] ?? 0),
-                    Description = reader["Description"]?.ToString() ?? string.Empty,
-                    Status = (UnitStatus)Convert.ToInt32(reader["Status"] ?? 0),
-                    Bedrooms = Convert.ToInt32(reader["Bedrooms"] ?? 0),
-                    Bathrooms = Convert.ToInt32(reader["Bathrooms"] ?? 0),
-                    CreatedDate = reader["CreatedDate"] == DBNull.Value ? DateTime.Now : Convert.ToDateTime(reader["CreatedDate"])
+                    Id = GetInt32(reader, "Id", 0),
+                    PropertyId = GetInt32(reader, "PropertyId", 0),
+                    UnitNumber = GetString(reader, "UnitNumber", ""),
+                    UnitType = GetString(reader, "UnitType", ""),
+                    Size = GetDecimal(reader, "Size", 0),
+                    RentAmount = GetDecimal(reader, "RentAmount", 0),
+                    Description = GetString(reader, "Description", ""),
+                    Status = GetEnum<UnitStatus>(reader, "Status", UnitStatus.Vacant),
+                    Bedrooms = GetInt32(reader, "Bedrooms", 0),
+                    Bathrooms = GetInt32(reader, "Bathrooms", 0),
+                    CreatedDate = GetDateTime(reader, "CreatedDate", DateTime.Now)
                 });
             }
             return units;
@@ -186,6 +186,83 @@ namespace ApartmentManagementSystem
             using var command = new SQLiteCommand(query, connection);
             command.Parameters.AddWithValue("@Id", id);
             command.ExecuteNonQuery();
+        }
+
+        private int GetInt32(SQLiteDataReader reader, string columnName, int defaultValue)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetInt32(ordinal) : defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        private string GetString(SQLiteDataReader reader, string columnName, string defaultValue)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetString(ordinal) : defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        private DateTime GetDateTime(SQLiteDataReader reader, string columnName, DateTime defaultValue)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetDateTime(ordinal) : defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        private decimal GetDecimal(SQLiteDataReader reader, string columnName, decimal defaultValue)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetDecimal(ordinal) : defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        private T GetEnum<T>(SQLiteDataReader reader, string columnName, T defaultValue) where T : struct
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                if (!reader.IsDBNull(ordinal))
+                {
+                    var value = reader.GetString(ordinal);
+                    if (Enum.TryParse<T>(value, out T result))
+                    {
+                        return result;
+                    }
+                    else if (int.TryParse(value, out int intValue))
+                    {
+                        return (T)Enum.ToObject(typeof(T), intValue);
+                    }
+                }
+                return defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
         }
     }
 }

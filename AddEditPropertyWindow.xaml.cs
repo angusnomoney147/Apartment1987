@@ -79,12 +79,17 @@ namespace ApartmentManagementSystem
                 }
                 else
                 {
+                    // Add the property first to get the ID
                     _propertyRepository.Add(_property);
 
+                    // Now get the property with the assigned ID
+                    var allProperties = _propertyRepository.GetAll();
+                    var addedProperty = allProperties.FirstOrDefault(p => p.Name == _property.Name && p.CreatedDate == _property.CreatedDate);
+
                     // Automatically create units if specified
-                    if (_property.TotalUnits > 0)
+                    if (addedProperty != null && addedProperty.TotalUnits > 0)
                     {
-                        CreateUnitsForProperty(_property);
+                        CreateUnitsForProperty(addedProperty);
                     }
 
                     MessageBox.Show("Property added successfully!", "Success",
@@ -111,7 +116,7 @@ namespace ApartmentManagementSystem
                 {
                     var unit = new Unit
                     {
-                        PropertyId = property.Id,
+                        PropertyId = property.Id, // This should now be the correct ID
                         UnitNumber = $"{i:D3}", // Creates unit numbers like 001, 002, etc.
                         UnitType = "Standard",
                         Size = 0,
@@ -132,7 +137,6 @@ namespace ApartmentManagementSystem
                               MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-
         private bool ValidateInput()
         {
             if (string.IsNullOrWhiteSpace(TxtName.Text))

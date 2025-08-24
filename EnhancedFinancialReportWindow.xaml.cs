@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
-using Microsoft.Win32;
 
 namespace ApartmentManagementSystem
 {
@@ -29,6 +28,7 @@ namespace ApartmentManagementSystem
             _propertyRepository = new PropertyRepository();
             LoadInitialData();
             SetDefaultDates();
+            GenerateReport(); // Generate initial report
         }
 
         private void LoadInitialData()
@@ -54,7 +54,7 @@ namespace ApartmentManagementSystem
 
         private void SetDefaultDates()
         {
-            DpFromDate.SelectedDate = DateTime.Now.AddMonths(-1);
+            DpFromDate.SelectedDate = DateTime.Now.AddMonths(-6); // Show last 6 months by default
             DpToDate.SelectedDate = DateTime.Now;
         }
 
@@ -95,63 +95,93 @@ namespace ApartmentManagementSystem
 
         private void GenerateReport()
         {
-            var fromDate = DpFromDate.SelectedDate ?? DateTime.Now.AddMonths(-1);
-            var toDate = DpToDate.SelectedDate ?? DateTime.Now;
-            var propertyId = CmbProperties.SelectedValue != null ? (int)CmbProperties.SelectedValue : 0;
-            var tenantId = CmbTenants.SelectedValue != null ? (int)CmbTenants.SelectedValue : 0;
-
-            // Filter payments - include all payments, not just completed ones for better reporting
-            var filteredPayments = _allPayments
-                .Where(p => p.PaymentDate >= fromDate && p.PaymentDate <= toDate.AddDays(1)) // Add a day to include the end date
-                .ToList();
-
-            // Apply property filter
-            if (propertyId > 0)
+            try
             {
-                var propertyLeaseIds = _allLeases
-                    .Where(l => _allUnits.Any(u => u.Id == l.UnitId && u.PropertyId == propertyId))
-                    .Select(l => l.Id)
+                var fromDate = DpFromDate.SelectedDate ?? DateTime.Now.AddMonths(-6);
+                var toDate = DpToDate.SelectedDate ?? DateTime.Now;
+                var propertyId = CmbProperties.SelectedValue != null ? (int)CmbProperties.SelectedValue : 0;
+                var tenantId = CmbTenants.SelectedValue != null ? (int)CmbTenants.SelectedValue : 0;
+
+                // Debug: Show how many payments we have
+                Console.WriteLine($"Total payments loaded: {_allPayments.Count}");
+
+                // Filter payments - show all payments, not just completed ones
+                var filteredPayments = _allPayments
+                    .Where(p => p.PaymentDate >= fromDate && p.PaymentDate <= toDate.AddDays(1))
                     .ToList();
 
-                filteredPayments = filteredPayments
-                    .Where(p => propertyLeaseIds.Contains(p.LeaseId))
-                    .ToList();
-            }
+                Console.WriteLine($"Payments after date filter: {filteredPayments.Count}");
 
-            // Apply tenant filter
-            if (tenantId > 0)
-            {
-                filteredPayments = filteredPayments
-                    .Where(p => _allLeases.Any(l => l.Id == p.LeaseId && l.TenantId == tenantId))
-                    .ToList();
-            }
-
-            // Generate report data with proper columns
-            var reportData = filteredPayments.Select(p =>
-            {
-                var lease = _allLeases.FirstOrDefault(l => l.Id == p.LeaseId);
-                var unit = lease != null ? _allUnits.FirstOrDefault(u => u.Id == lease.UnitId) : null;
-                var tenant = lease != null ? _allTenants.FirstOrDefault(t => t.Id == lease.TenantId) : null;
-                var property = unit != null ? _allProperties.FirstOrDefault(p => p.Id == unit.PropertyId) : null;
-
-                return new
+                // Apply property filter
+                if (propertyId > 0)
                 {
-                    ID = p.Id,
-                    PaymentDate = p.PaymentDate,
-                    Status = PaymentStatusHelper.GetStatusName(p.Status),
-                    PropertyInfo = $"{property?.Name ?? "Unknown Property"}, {unit?.UnitNumber ?? "Unknown Unit"}",
-                    RentAmount = p.Amount,
-                    TenantName = tenant?.FullName ?? "Unknown Tenant",
-                    PhoneNumber = tenant?.Phone ?? "N/A",
-                    CreatedDate = p.CreatedDate
-                };
-            }).ToList();
+                    var propertyLeaseIds = _allLeases
+                        .Where(l => _allUnits.Any(u => u.Id == l.UnitId && u.PropertyId == propertyId))
+                        .Select(l => l.Id)
+                        .ToList();
 
-            DataGridFinancialReport.ItemsSource = reportData;
+                    filteredPayments = filteredPayments
+                        .Where(p => propertyLeaseIds.Contains(p.LeaseId))
+                        .ToList();
 
-            // Update summary
-            TxtTotalAmount.Text = $"Total Amount: ${reportData.Sum(r => r.RentAmount):F2}";
-            TxtRecordCount.Text = $"Records: {reportData.Count}";
+                    Console.WriteLine($"Payments after property filter: {filteredPayments.Count}");
+                }
+
+                // Apply tenant filter
+                if (tenantId > 0)
+                {
+                    filteredPayments = filteredPayments
+                        .Where(p => _allLeases.Any(l => l.Id == p.LeaseId && l.TenantId == tenantId))
+                        .ToList();
+
+                    Console.WriteLine($"Payments after tenant filter: {filteredPayments.Count}");
+                }
+
+                // Generate report data
+                var reportData = new List<object>();
+
+                foreach (var payment in filteredPayments)
+                {
+                    var lease = _allLeases.FirstOrDefault(l => l.Id == payment.LeaseId);
+                    var unit = lease != null ? _allUnits.FirstOrDefault(u => u.Id == lease.UnitId) : null;
+                    var tenant = lease != null ? _allTenants.FirstOrDefault(t => t.Id == lease.TenantId) : null;
+                    var property = unit != null ? _allProperties.FirstOrDefault(p => p.Id == unit.PropertyId) : null;
+
+                    var item = new
+                    {
+                        ID = payment.Id,
+                        PaymentDate = payment.PaymentDate,
+                        Status = PaymentStatusHelper.GetStatusName(payment.Status),
+                        PropertyInfo = $"{property?.Name ?? "Unknown Property"}, {unit?.UnitNumber ?? "Unknown Unit"}",
+                        RentAmount = payment.Amount,
+                        TenantName = tenant?.FullName ?? "Unknown Tenant",
+                        PhoneNumber = tenant?.Phone ?? "N/A",
+                        CreatedDate = payment.CreatedDate
+                    };
+
+                    reportData.Add(item);
+                }
+
+                Console.WriteLine($"Final report data items: {reportData.Count}");
+
+                DataGridFinancialReport.ItemsSource = reportData;
+
+                // Update summary
+                var totalAmount = reportData.Sum(item =>
+                {
+                    var itemType = item.GetType();
+                    var rentAmountProperty = itemType.GetProperty("RentAmount");
+                    return rentAmountProperty != null ? (decimal)rentAmountProperty.GetValue(item) : 0;
+                });
+
+                TxtTotalAmount.Text = $"Total Amount: ${totalAmount:F2}";
+                TxtRecordCount.Text = $"Records: {reportData.Count}";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error in report generation: {ex.Message}", "Error",
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
     }
 }
