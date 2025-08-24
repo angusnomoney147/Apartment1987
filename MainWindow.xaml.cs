@@ -32,7 +32,7 @@ namespace ApartmentManagementSystem
         private void InitializeAutoRefresh()
         {
             _autoRefreshTimer = new System.Windows.Threading.DispatcherTimer();
-            _autoRefreshTimer.Interval = TimeSpan.FromSeconds(30);
+            _autoRefreshTimer.Interval = TimeSpan.FromSeconds(1);
             _autoRefreshTimer.Tick += (sender, e) => LoadDashboardData();
             _autoRefreshTimer.Start();
         }
@@ -53,13 +53,7 @@ namespace ApartmentManagementSystem
             try
             {
                 LoadStatistics();
-                var properties = _propertyRepository.GetAll();
-                var units = _unitRepository.GetAll();
-                var tenants = _tenantRepository.GetAll();
-                var leases = _leaseRepository.GetAll();
-                var payments = _paymentRepository.GetAll();
-                var maintenance = _maintenanceRepository.GetAll();
-                LoadRecentActivity(tenants, properties, maintenance, payments);
+                LoadRecentActivity();
                 LoadVacantUnits();
                 LoadOccupiedUnits();
                 LoadTenantActivity();
@@ -71,6 +65,7 @@ namespace ApartmentManagementSystem
                               MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
 
         private void LoadRecentActivity(List<Tenant> tenants, List<Property> properties, List<MaintenanceRequest> maintenance, List<Payment> payments)
         {
@@ -124,23 +119,37 @@ namespace ApartmentManagementSystem
 
         private void LoadStatistics()
         {
-            var properties = _propertyRepository.GetAll();
-            var units = _unitRepository.GetAll();
-            var leases = _leaseRepository.GetAll();
-            var maintenanceRequests = _maintenanceRepository.GetAll();
-            var payments = _paymentRepository.GetAll();
+            try
+            {
+                var properties = _propertyRepository.GetAll();
+                var units = _unitRepository.GetAll();
+                var leases = _leaseRepository.GetAll();
+                var maintenanceRequests = _maintenanceRepository.GetAll();
+                var payments = _paymentRepository.GetAll();
 
-            TxtTotalProperties.Text = properties.Count.ToString();
-            TxtTotalUnits.Text = units.Count.ToString();
+                TxtTotalProperties.Text = properties.Count.ToString();
+                TxtTotalUnits.Text = units.Count.ToString();
 
-            var occupiedUnits = units.Count(u => u.Status == UnitStatus.Occupied);
-            TxtOccupiedUnits.Text = occupiedUnits.ToString();
+                var occupiedUnits = units.Count(u => u.Status == UnitStatus.Occupied);
+                TxtOccupiedUnits.Text = occupiedUnits.ToString();
 
-            var pendingMaintenance = maintenanceRequests.Count(m => m.Status == MaintenanceStatus.Pending || m.Status == MaintenanceStatus.InProgress);
-            TxtPendingMaintenance.Text = pendingMaintenance.ToString();
+                var vacantUnits = units.Count(u => u.Status == UnitStatus.Vacant);
+                TxtVacantUnits.Text = vacantUnits.ToString();
 
-            var overduePayments = payments.Count(p => p.Status == PaymentStatus.Overdue);
-            TxtOverduePayments.Text = overduePayments.ToString();
+                var pendingMaintenance = maintenanceRequests.Count(m => m.Status == MaintenanceStatus.Pending || m.Status == MaintenanceStatus.InProgress);
+                TxtPendingMaintenance.Text = pendingMaintenance.ToString();
+
+                var overduePayments = payments.Count(p => p.Status == PaymentStatus.Overdue);
+                TxtOverduePayments.Text = overduePayments.ToString();
+
+                var activeLeases = leases.Count(l => l.Status == LeaseStatus.Active);
+                TxtActiveLeases.Text = activeLeases.ToString();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading statistics: {ex.Message}", "Error",
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void LoadVacantUnits()

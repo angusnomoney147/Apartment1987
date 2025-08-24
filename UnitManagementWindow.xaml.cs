@@ -73,8 +73,13 @@ namespace ApartmentManagementSystem
         {
             if (CmbProperties.SelectedItem != null)
             {
-                int propertyId = (int)CmbProperties.SelectedValue;
-                LoadUnits(propertyId);
+                // Make sure we're getting the correct property ID
+                var selectedProperty = CmbProperties.SelectedItem as dynamic;
+                if (selectedProperty != null)
+                {
+                    int propertyId = selectedProperty.Id;
+                    LoadUnits(propertyId);
+                }
             }
         }
 

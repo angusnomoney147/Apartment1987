@@ -52,6 +52,38 @@ namespace ApartmentManagementSystem
             }
         }
 
+        private void CreateUnitsForProperty(Property property, int numberOfUnits)
+        {
+            try
+            {
+                var unitRepository = new UnitRepository();
+
+                for (int i = 1; i <= numberOfUnits; i++)
+                {
+                    var unit = new Unit
+                    {
+                        PropertyId = property.Id,
+                        UnitNumber = $"{i:D3}", // Creates unit numbers like 001, 002, etc.
+                        UnitType = "Standard", // Default unit type
+                        Size = 0, // You can set default size
+                        RentAmount = 0, // You can set default rent
+                        Bedrooms = 1, // Default bedrooms
+                        Bathrooms = 1, // Default bathrooms
+                        Description = $"Unit {i:D3}",
+                        Status = UnitStatus.Vacant, // Default to vacant
+                        CreatedDate = DateTime.Now
+                    };
+
+                    unitRepository.Add(unit);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error creating units: {ex.Message}", "Error",
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void BtnSave_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -80,18 +112,17 @@ namespace ApartmentManagementSystem
                 else
                 {
                     _propertyRepository.Add(_property);
+                    MessageBox.Show("Property added successfully!", "Success",
+                                  MessageBoxButton.OK, MessageBoxImage.Information);
 
-                    // GET THE ACTUAL INSERTED PROPERTY WITH ITS ID
-                    // This is the key fix - we need to get the property back with its real ID
-                    var allProperties = _propertyRepository.GetAll();
-                    var insertedProperty = allProperties.OrderByDescending(p => p.CreatedDate).FirstOrDefault();
-
-                    if (insertedProperty != null && insertedProperty.TotalUnits > 0)
+                    // Automatically create units if specified
+                    if (int.TryParse(TxtNumberOfUnits.Text, out int numberOfUnits) && numberOfUnits > 0)
                     {
-                        CreateUnitsForProperty(insertedProperty);
+                        CreateUnitsForProperty(_property, numberOfUnits);
                     }
+                }
 
-                    MessageBox.Show("Property added successfully! Units have been automatically created.", "Success",
+                MessageBox.Show("Property added successfully! Units have been automatically created.", "Success",
                                   MessageBoxButton.OK, MessageBoxImage.Information);
                 }
 
