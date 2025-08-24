@@ -7,10 +7,11 @@
             return method switch
             {
                 PaymentMethod.Cash => "Cash",
-                PaymentMethod.BankTransfer => "Bank Transfer",
-                PaymentMethod.CreditCard => "Credit Card",
                 PaymentMethod.Check => "Check",
-                _ => "Unknown"
+                PaymentMethod.CreditCard => "Credit Card",
+                PaymentMethod.BankTransfer => "Bank Transfer",
+                PaymentMethod.Other => "Other",
+                _ => method.ToString()
             };
         }
     }

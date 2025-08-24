@@ -47,14 +47,14 @@ namespace ApartmentManagementSystem
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error loading  {ex.Message}", "Error",
+                MessageBox.Show($"Error loading data: {ex.Message}", "Error",
                               MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
         private void SetDefaultDates()
         {
-            DpFromDate.SelectedDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            DpFromDate.SelectedDate = DateTime.Now.AddMonths(-1);
             DpToDate.SelectedDate = DateTime.Now;
         }
 
@@ -97,13 +97,12 @@ namespace ApartmentManagementSystem
         {
             var fromDate = DpFromDate.SelectedDate ?? DateTime.Now.AddMonths(-1);
             var toDate = DpToDate.SelectedDate ?? DateTime.Now;
-            var propertyId = (int)CmbProperties.SelectedValue;
-            var tenantId = (int)CmbTenants.SelectedValue;
+            var propertyId = CmbProperties.SelectedValue != null ? (int)CmbProperties.SelectedValue : 0;
+            var tenantId = CmbTenants.SelectedValue != null ? (int)CmbTenants.SelectedValue : 0;
 
-            // Filter payments
+            // Filter payments - include all payments, not just completed ones for better reporting
             var filteredPayments = _allPayments
-                .Where(p => p.PaymentDate >= fromDate && p.PaymentDate <= toDate)
-                .Where(p => p.Status == PaymentStatus.Completed)
+                .Where(p => p.PaymentDate >= fromDate && p.PaymentDate <= toDate.AddDays(1)) // Add a day to include the end date
                 .ToList();
 
             // Apply property filter

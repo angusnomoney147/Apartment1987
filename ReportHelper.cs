@@ -63,8 +63,8 @@ namespace ApartmentManagementSystem
             sb.AppendLine($"Generated on: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             sb.AppendLine();
 
-            var totalPayments = payments.Where(p => p.Status == PaymentStatus.Completed).Sum(p => p.Amount); // Changed from Paid to Completed
-            var thisMonthPayments = payments.Where(p => p.Status == PaymentStatus.Completed && // Changed from Paid to Completed
+            var totalPayments = payments.Where(p => p.Status == PaymentStatus.Completed).Sum(p => p.Amount);
+            var thisMonthPayments = payments.Where(p => p.Status == PaymentStatus.Completed &&
                                                        p.PaymentDate.Month == DateTime.Now.Month &&
                                                        p.PaymentDate.Year == DateTime.Now.Year)
                                            .Sum(p => p.Amount);
@@ -74,7 +74,7 @@ namespace ApartmentManagementSystem
             sb.AppendLine();
 
             sb.AppendLine("Recent Payments:");
-            var recentPayments = payments.Where(p => p.Status == PaymentStatus.Completed) // Changed from Paid to Completed
+            var recentPayments = payments.Where(p => p.Status == PaymentStatus.Completed)
                                         .OrderByDescending(p => p.PaymentDate)
                                         .Take(10);
 
