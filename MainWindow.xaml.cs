@@ -1,4 +1,6 @@
-﻿using System;
+﻿using DocumentFormat.OpenXml.Drawing;
+using DocumentFormat.OpenXml.Wordprocessing;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -14,6 +16,7 @@ namespace ApartmentManagementSystem
         private readonly LeaseRepository _leaseRepository;
         private readonly PaymentRepository _paymentRepository;
         private readonly MaintenanceRepository _maintenanceRepository;
+        private List<Property> _properties = new();
 
         // Event to notify when data changes
         public static event EventHandler DataChanged;
@@ -193,7 +196,7 @@ namespace ApartmentManagementSystem
         {
             try
             {
-                var properties = _propertyRepository.GetAll();
+                var properties = _propertyRepository.GetAll().OrderBy(p => p.Name).ToList(); // Order by Name ascending
                 var units = _unitRepository.GetAll().Where(u => u.Status == UnitStatus.Vacant).ToList();
 
                 var vacantUnits = units.Select(u => new
@@ -218,7 +221,7 @@ namespace ApartmentManagementSystem
         {
             try
             {
-                var properties = _propertyRepository.GetAll();
+                var properties = _propertyRepository.GetAll().OrderBy(p => p.Name).ToList(); // Order by Name ascending
                 var units = _unitRepository.GetAll().Where(u => u.Status == UnitStatus.Occupied).ToList();
                 var leases = _leaseRepository.GetAll().Where(l => l.Status == LeaseStatus.Active).ToList();
                 var tenants = _tenantRepository.GetAll();
@@ -252,7 +255,7 @@ namespace ApartmentManagementSystem
         {
             try
             {
-                var properties = _propertyRepository.GetAll();
+                var properties = _propertyRepository.GetAll().OrderBy(p => p.Name).ToList(); // Order by Name ascending
                 var units = _unitRepository.GetAll();
                 var leases = _leaseRepository.GetAll().Where(l => l.Status == LeaseStatus.Active).ToList();
                 var tenants = _tenantRepository.GetAll().Where(t => t.IsActive).ToList();
@@ -285,7 +288,7 @@ namespace ApartmentManagementSystem
         {
             try
             {
-                var properties = _propertyRepository.GetAll();
+                var properties = _propertyRepository.GetAll().OrderBy(p => p.Name).ToList(); // Order by Name ascending
                 var units = _unitRepository.GetAll();
                 var maintenanceRequests = _maintenanceRepository.GetAll()
                     .Where(m => m.Status == MaintenanceStatus.Pending || m.Status == MaintenanceStatus.InProgress)
@@ -314,7 +317,6 @@ namespace ApartmentManagementSystem
             {
             }
         }
-
         private string GetPropertyName(int propertyId, List<Property> properties)
         {
             try

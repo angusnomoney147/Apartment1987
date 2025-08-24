@@ -127,10 +127,10 @@ namespace ApartmentManagementSystem
                     // Automatically create first pending payment
                     CreateInitialPayment(_lease);
 
-                    // Update unit status to Occupied
+                    // Automatically update unit status to Occupied
                     UpdateUnitStatus(_lease.UnitId, UnitStatus.Occupied);
 
-                    MessageBox.Show("Lease added successfully! Initial payment created.", "Success",
+                    MessageBox.Show("Lease added successfully! Unit is now occupied and initial payment created.", "Success",
                                   MessageBoxButton.OK, MessageBoxImage.Information);
                 }
 
