@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
+using System.Linq;
+using System.Windows;
 
 namespace ApartmentManagementSystem
 {
@@ -10,94 +12,223 @@ namespace ApartmentManagementSystem
 
         public PropertyRepository()
         {
-            _connectionString = DatabaseHelper.GetConnectionString();
+            _connectionString = "Data Source=apartment.db;Version=3;";
         }
 
         public List<Property> GetAll()
         {
             var properties = new List<Property>();
-            using var connection = new SQLiteConnection(_connectionString);
-            connection.Open();
-
-            using var command = new SQLiteCommand("SELECT * FROM Properties ORDER BY Name", connection);
-            using var reader = command.ExecuteReader();
-
-            while (reader.Read())
+            try
             {
-                properties.Add(new Property
+                using (var connection = new SQLiteConnection(_connectionString))
                 {
-                    Id = Convert.ToInt32(reader["Id"]),
-                    Name = reader["Name"].ToString() ?? string.Empty,
-                    Address = reader["Address"]?.ToString() ?? string.Empty,
-                    City = reader["City"]?.ToString() ?? string.Empty,
-                    Country = reader["Country"]?.ToString() ?? string.Empty,
-                    TotalUnits = Convert.ToInt32(reader["TotalUnits"]),
-                    ManagerName = reader["ManagerName"]?.ToString() ?? string.Empty,
-                    ContactInfo = reader["ContactInfo"]?.ToString() ?? string.Empty,
-                    CreatedDate = DateTime.Parse(reader["CreatedDate"]?.ToString() ?? DateTime.Now.ToString())
-                });
+                    connection.Open();
+                    using (var command = new SQLiteCommand("SELECT * FROM Properties ORDER BY Name", connection))
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var property = new Property();
+
+                            property.Id = GetInt32(reader, "Id", 0);
+                            property.Name = GetString(reader, "Name", "");
+                            property.Address = GetString(reader, "Address", "");
+                            property.City = GetString(reader, "City", "");
+                            property.State = GetString(reader, "State", "");
+                            property.ZipCode = GetString(reader, "ZipCode", "");
+                            property.Country = GetString(reader, "Country", "");
+                            property.ManagerName = GetString(reader, "ManagerName", "");
+                            property.ContactInfo = GetString(reader, "ContactInfo", "");
+                            property.TotalUnits = GetInt32(reader, "TotalUnits", 0);
+                            property.CreatedDate = GetDateTime(reader, "CreatedDate", DateTime.Now);
+
+                            properties.Add(property);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading properties: {ex.Message}");
             }
             return properties;
         }
 
-        // KEEP ONLY ONE Add method that returns the ID
-        public int Add(Property property)
+        public Property GetById(int id)
         {
-            using var connection = new SQLiteConnection(_connectionString);
-            connection.Open();
+            try
+            {
+                using (var connection = new SQLiteConnection(_connectionString))
+                {
+                    connection.Open();
+                    using (var command = new SQLiteCommand("SELECT * FROM Properties WHERE Id = @Id", connection))
+                    {
+                        command.Parameters.AddWithValue("@Id", id);
+                        using (var reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                var property = new Property();
 
-            const string query = @"INSERT INTO Properties (Name, Address, City, Country, 
-                                 TotalUnits, ManagerName, ContactInfo, CreatedDate) 
-                                 VALUES (@Name, @Address, @City, @Country, 
-                                 @TotalUnits, @ManagerName, @ContactInfo, @CreatedDate);
-                                 SELECT last_insert_rowid();";
+                                property.Id = GetInt32(reader, "Id", 0);
+                                property.Name = GetString(reader, "Name", "");
+                                property.Address = GetString(reader, "Address", "");
+                                property.City = GetString(reader, "City", "");
+                                property.State = GetString(reader, "State", "");
+                                property.ZipCode = GetString(reader, "ZipCode", "");
+                                property.Country = GetString(reader, "Country", "");
+                                property.ManagerName = GetString(reader, "ManagerName", "");
+                                property.ContactInfo = GetString(reader, "ContactInfo", "");
+                                property.TotalUnits = GetInt32(reader, "TotalUnits", 0);
+                                property.CreatedDate = GetDateTime(reader, "CreatedDate", DateTime.Now);
 
-            using var command = new SQLiteCommand(query, connection);
-            command.Parameters.AddWithValue("@Name", property.Name);
-            command.Parameters.AddWithValue("@Address", property.Address ?? string.Empty);
-            command.Parameters.AddWithValue("@City", property.City ?? string.Empty);
-            command.Parameters.AddWithValue("@Country", property.Country ?? string.Empty);
-            command.Parameters.AddWithValue("@TotalUnits", property.TotalUnits);
-            command.Parameters.AddWithValue("@ManagerName", property.ManagerName ?? string.Empty);
-            command.Parameters.AddWithValue("@ContactInfo", property.ContactInfo ?? string.Empty);
-            command.Parameters.AddWithValue("@CreatedDate", property.CreatedDate.ToString("yyyy-MM-dd"));
+                                return property;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading property: {ex.Message}");
+            }
+            return null;
+        }
 
-            var result = command.ExecuteScalar();
-            return Convert.ToInt32(result);
+        public void Add(Property property)
+        {
+            try
+            {
+                using (var connection = new SQLiteConnection(_connectionString))
+                {
+                    connection.Open();
+                    using (var command = new SQLiteCommand(@"
+                        INSERT INTO Properties 
+                        (Name, Address, City, State, ZipCode, Country, ManagerName, ContactInfo, TotalUnits, CreatedDate)
+                        VALUES 
+                        (@Name, @Address, @City, @State, @ZipCode, @Country, @ManagerName, @ContactInfo, @TotalUnits, @CreatedDate)", connection))
+                    {
+                        command.Parameters.AddWithValue("@Name", property.Name ?? "");
+                        command.Parameters.AddWithValue("@Address", property.Address ?? "");
+                        command.Parameters.AddWithValue("@City", property.City ?? "");
+                        command.Parameters.AddWithValue("@State", property.State ?? "");
+                        command.Parameters.AddWithValue("@ZipCode", property.ZipCode ?? "");
+                        command.Parameters.AddWithValue("@Country", property.Country ?? "");
+                        command.Parameters.AddWithValue("@ManagerName", property.ManagerName ?? "");
+                        command.Parameters.AddWithValue("@ContactInfo", property.ContactInfo ?? "");
+                        command.Parameters.AddWithValue("@TotalUnits", property.TotalUnits);
+                        command.Parameters.AddWithValue("@CreatedDate", property.CreatedDate);
+
+                        command.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error adding property: {ex.Message}");
+            }
         }
 
         public void Update(Property property)
         {
-            using var connection = new SQLiteConnection(_connectionString);
-            connection.Open();
+            try
+            {
+                using (var connection = new SQLiteConnection(_connectionString))
+                {
+                    connection.Open();
+                    using (var command = new SQLiteCommand(@"
+                        UPDATE Properties SET
+                        Name = @Name,
+                        Address = @Address,
+                        City = @City,
+                        State = @State,
+                        ZipCode = @ZipCode,
+                        Country = @Country,
+                        ManagerName = @ManagerName,
+                        ContactInfo = @ContactInfo,
+                        TotalUnits = @TotalUnits,
+                        CreatedDate = @CreatedDate
+                        WHERE Id = @Id", connection))
+                    {
+                        command.Parameters.AddWithValue("@Id", property.Id);
+                        command.Parameters.AddWithValue("@Name", property.Name ?? "");
+                        command.Parameters.AddWithValue("@Address", property.Address ?? "");
+                        command.Parameters.AddWithValue("@City", property.City ?? "");
+                        command.Parameters.AddWithValue("@State", property.State ?? "");
+                        command.Parameters.AddWithValue("@ZipCode", property.ZipCode ?? "");
+                        command.Parameters.AddWithValue("@Country", property.Country ?? "");
+                        command.Parameters.AddWithValue("@ManagerName", property.ManagerName ?? "");
+                        command.Parameters.AddWithValue("@ContactInfo", property.ContactInfo ?? "");
+                        command.Parameters.AddWithValue("@TotalUnits", property.TotalUnits);
+                        command.Parameters.AddWithValue("@CreatedDate", property.CreatedDate);
 
-            const string query = @"UPDATE Properties SET Name = @Name, Address = @Address, 
-                                 City = @City, Country = @Country, TotalUnits = @TotalUnits,
-                                 ManagerName = @ManagerName, ContactInfo = @ContactInfo
-                                 WHERE Id = @Id";
-
-            using var command = new SQLiteCommand(query, connection);
-            command.Parameters.AddWithValue("@Id", property.Id);
-            command.Parameters.AddWithValue("@Name", property.Name);
-            command.Parameters.AddWithValue("@Address", property.Address ?? string.Empty);
-            command.Parameters.AddWithValue("@City", property.City ?? string.Empty);
-            command.Parameters.AddWithValue("@Country", property.Country ?? string.Empty);
-            command.Parameters.AddWithValue("@TotalUnits", property.TotalUnits);
-            command.Parameters.AddWithValue("@ManagerName", property.ManagerName ?? string.Empty);
-            command.Parameters.AddWithValue("@ContactInfo", property.ContactInfo ?? string.Empty);
-            command.ExecuteNonQuery();
+                        command.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error updating property: {ex.Message}");
+            }
         }
 
         public void Delete(int id)
         {
-            using var connection = new SQLiteConnection(_connectionString);
-            connection.Open();
+            try
+            {
+                using (var connection = new SQLiteConnection(_connectionString))
+                {
+                    connection.Open();
+                    using (var command = new SQLiteCommand("DELETE FROM Properties WHERE Id = @Id", connection))
+                    {
+                        command.Parameters.AddWithValue("@Id", id);
+                        command.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error deleting property: {ex.Message}");
+            }
+        }
 
-            const string query = "DELETE FROM Properties WHERE Id = @Id";
+        private int GetInt32(SQLiteDataReader reader, string columnName, int defaultValue)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetInt32(ordinal) : defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
 
-            using var command = new SQLiteCommand(query, connection);
-            command.Parameters.AddWithValue("@Id", id);
-            command.ExecuteNonQuery();
+        private string GetString(SQLiteDataReader reader, string columnName, string defaultValue)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetString(ordinal) : defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        private DateTime GetDateTime(SQLiteDataReader reader, string columnName, DateTime defaultValue)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return !reader.IsDBNull(ordinal) ? reader.GetDateTime(ordinal) : defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
         }
     }
 }

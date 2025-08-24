@@ -14,19 +14,18 @@ namespace ApartmentManagementSystem
         {
             try
             {
-                // Always recreate the database for now to ensure clean schema
-                if (File.Exists(DatabaseName))
+                // Only create database if it doesn't exist - THIS FIXES THE ISSUE!
+                if (!File.Exists(DatabaseName))
                 {
-                    File.Delete(DatabaseName);
-                }
+                    SQLiteConnection.CreateFile(DatabaseName);
 
-                SQLiteConnection.CreateFile(DatabaseName);
-
-                using (var connection = new SQLiteConnection(ConnectionString))
-                {
-                    connection.Open();
-                    CreateTables(connection);
+                    using (var connection = new SQLiteConnection(ConnectionString))
+                    {
+                        connection.Open();
+                        CreateTables(connection);
+                    }
                 }
+                // If database exists, do nothing - keep the data!
             }
             catch (Exception ex)
             {
@@ -40,7 +39,7 @@ namespace ApartmentManagementSystem
             {
                 using (var transaction = connection.BeginTransaction())
                 {
-                    // Create Properties table
+                    // Create Properties table with all columns
                     using (var command = new SQLiteCommand(@"
                         CREATE TABLE Properties (
                             Id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,6 +48,9 @@ namespace ApartmentManagementSystem
                             City TEXT,
                             State TEXT,
                             ZipCode TEXT,
+                            Country TEXT,
+                            ManagerName TEXT,
+                            ContactInfo TEXT,
                             TotalUnits INTEGER DEFAULT 0,
                             CreatedDate DATETIME DEFAULT CURRENT_TIMESTAMP
                         )", connection))
@@ -76,7 +78,7 @@ namespace ApartmentManagementSystem
                         command.ExecuteNonQuery();
                     }
 
-                    // Create Tenants table (clean schema)
+                    // Create Tenants table
                     using (var command = new SQLiteCommand(@"
                         CREATE TABLE Tenants (
                             Id INTEGER PRIMARY KEY AUTOINCREMENT,
