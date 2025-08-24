@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -8,16 +7,14 @@ namespace ApartmentManagementSystem
 {
     public partial class AddEditPropertyWindow : Window
     {
-        private Property? _property;
+        private Property _property;
         private readonly PropertyRepository _propertyRepository;
-        private readonly UnitRepository _unitRepository;
         private readonly bool _isEditMode;
 
         public AddEditPropertyWindow()
         {
             InitializeComponent();
             _propertyRepository = new PropertyRepository();
-            _unitRepository = new UnitRepository();
             _isEditMode = false;
             TxtHeader.Text = "➕ Add New Property";
             InitializeForm();
@@ -33,7 +30,6 @@ namespace ApartmentManagementSystem
 
         private void InitializeForm()
         {
-            // Set default values
             DpCreatedDate.SelectedDate = DateTime.Now;
         }
 
@@ -44,43 +40,13 @@ namespace ApartmentManagementSystem
                 TxtName.Text = _property.Name;
                 TxtAddress.Text = _property.Address;
                 TxtCity.Text = _property.City;
+                TxtState.Text = _property.State;
+                TxtZipCode.Text = _property.ZipCode;
                 TxtCountry.Text = _property.Country;
                 TxtManagerName.Text = _property.ManagerName;
                 TxtContactInfo.Text = _property.ContactInfo;
                 TxtTotalUnits.Text = _property.TotalUnits.ToString();
                 DpCreatedDate.SelectedDate = _property.CreatedDate;
-            }
-        }
-
-        private void CreateUnitsForProperty(Property property, int numberOfUnits)
-        {
-            try
-            {
-                var unitRepository = new UnitRepository();
-
-                for (int i = 1; i <= numberOfUnits; i++)
-                {
-                    var unit = new Unit
-                    {
-                        PropertyId = property.Id,
-                        UnitNumber = $"{i:D3}", // Creates unit numbers like 001, 002, etc.
-                        UnitType = "Standard", // Default unit type
-                        Size = 0, // You can set default size
-                        RentAmount = 0, // You can set default rent
-                        Bedrooms = 1, // Default bedrooms
-                        Bathrooms = 1, // Default bathrooms
-                        Description = $"Unit {i:D3}",
-                        Status = UnitStatus.Vacant, // Default to vacant
-                        CreatedDate = DateTime.Now
-                    };
-
-                    unitRepository.Add(unit);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error creating units: {ex.Message}", "Error",
-                              MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -97,6 +63,8 @@ namespace ApartmentManagementSystem
                 _property.Name = TxtName.Text.Trim();
                 _property.Address = string.IsNullOrWhiteSpace(TxtAddress.Text) ? null : TxtAddress.Text.Trim();
                 _property.City = string.IsNullOrWhiteSpace(TxtCity.Text) ? null : TxtCity.Text.Trim();
+                _property.State = string.IsNullOrWhiteSpace(TxtState.Text) ? null : TxtState.Text.Trim();
+                _property.ZipCode = string.IsNullOrWhiteSpace(TxtZipCode.Text) ? null : TxtZipCode.Text.Trim();
                 _property.Country = string.IsNullOrWhiteSpace(TxtCountry.Text) ? null : TxtCountry.Text.Trim();
                 _property.ManagerName = string.IsNullOrWhiteSpace(TxtManagerName.Text) ? null : TxtManagerName.Text.Trim();
                 _property.ContactInfo = string.IsNullOrWhiteSpace(TxtContactInfo.Text) ? null : TxtContactInfo.Text.Trim();
@@ -112,17 +80,14 @@ namespace ApartmentManagementSystem
                 else
                 {
                     _propertyRepository.Add(_property);
-                    MessageBox.Show("Property added successfully!", "Success",
-                                  MessageBoxButton.OK, MessageBoxImage.Information);
 
                     // Automatically create units if specified
-                    if (int.TryParse(TxtNumberOfUnits.Text, out int numberOfUnits) && numberOfUnits > 0)
+                    if (_property.TotalUnits > 0)
                     {
-                        CreateUnitsForProperty(_property, numberOfUnits);
+                        CreateUnitsForProperty(_property);
                     }
-                }
 
-                MessageBox.Show("Property added successfully! Units have been automatically created.", "Success",
+                    MessageBox.Show("Property added successfully!", "Success",
                                   MessageBoxButton.OK, MessageBoxImage.Information);
                 }
 
@@ -132,6 +97,38 @@ namespace ApartmentManagementSystem
             catch (Exception ex)
             {
                 MessageBox.Show($"Error saving property: {ex.Message}", "Error",
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void CreateUnitsForProperty(Property property)
+        {
+            try
+            {
+                var unitRepository = new UnitRepository();
+
+                for (int i = 1; i <= property.TotalUnits; i++)
+                {
+                    var unit = new Unit
+                    {
+                        PropertyId = property.Id,
+                        UnitNumber = $"{i:D3}", // Creates unit numbers like 001, 002, etc.
+                        UnitType = "Standard",
+                        Size = 0,
+                        RentAmount = 0,
+                        Bedrooms = 1,
+                        Bathrooms = 1,
+                        Description = $"Unit {i:D3} in {property.Name}",
+                        Status = UnitStatus.Vacant,
+                        CreatedDate = DateTime.Now
+                    };
+
+                    unitRepository.Add(unit);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error creating units: {ex.Message}", "Error",
                               MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -146,7 +143,7 @@ namespace ApartmentManagementSystem
                 return false;
             }
 
-            if (!int.TryParse(TxtTotalUnits.Text, out int totalUnits) || totalUnits < 0)
+            if (!int.TryParse(TxtTotalUnits.Text, out _))
             {
                 MessageBox.Show("Please enter a valid number of units.", "Validation Error",
                               MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -157,50 +154,16 @@ namespace ApartmentManagementSystem
             return true;
         }
 
-        private void CreateUnitsForProperty(Property property)
-        {
-            try
-            {
-                for (int i = 1; i <= property.TotalUnits; i++)
-                {
-                    var unit = new Unit
-                    {
-                        PropertyId = property.Id,
-                        UnitNumber = $"{property.Name.Substring(0, Math.Min(3, property.Name.Length))}{i:D3}", // PROP001, PROP002, etc.
-                        UnitType = "Standard",
-                        Size = 0,
-                        RentAmount = 0,
-                        Description = $"Unit {i} in {property.Name}",
-                        Status = UnitStatus.Vacant,
-                        Bedrooms = 1,
-                        Bathrooms = 1
-                    };
-
-                    _unitRepository.Add(unit);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error creating units for property: {ex.Message}", "Warning",
-                              MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        }
-
         private void BtnCancel_Click(object sender, RoutedEventArgs e)
         {
             this.DialogResult = false;
             this.Close();
         }
 
-        private void IntegerOnly_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        private void NumberOnly_PreviewTextInput(object sender, TextCompositionEventArgs e)
         {
-            // Allow only numbers
-            e.Handled = !IsIntegerAllowed(e.Text);
-        }
-
-        private static bool IsIntegerAllowed(string text)
-        {
-            return Regex.IsMatch(text, @"^[0-9]+$");
+            // Only allow numbers
+            e.Handled = !System.Text.RegularExpressions.Regex.IsMatch(e.Text, @"^[0-9]+$");
         }
     }
 }

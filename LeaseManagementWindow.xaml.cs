@@ -24,7 +24,26 @@ namespace ApartmentManagementSystem
             _unitRepository = new UnitRepository();
             _tenantRepository = new TenantRepository();
             _propertyRepository = new PropertyRepository();
+            InitializeForm(); // Add this line
             LoadAllData();
+        }
+
+        private void InitializeForm()
+        {
+            // Populate status filter dropdown
+            var statuses = new List<object>
+            {
+                new { Value = -1, Name = "All Statuses" }
+            };
+
+            statuses.AddRange(Enum.GetValues(typeof(LeaseStatus)).Cast<LeaseStatus>()
+                .Select(s => new { Value = (int)s, Name = LeaseStatusHelper.GetStatusName(s) })
+                .ToList());
+
+            CmbStatusFilter.ItemsSource = statuses; // Use CmbStatusFilter instead of CmbStatus
+            CmbStatusFilter.DisplayMemberPath = "Name";
+            CmbStatusFilter.SelectedValuePath = "Value";
+            CmbStatusFilter.SelectedIndex = 0; // Default to "All Statuses"
         }
 
         private void LoadAllData()
@@ -40,7 +59,7 @@ namespace ApartmentManagementSystem
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error loading  {ex.Message}", "Error",
+                MessageBox.Show($"Error loading leases: {ex.Message}", "Error",
                               MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -180,15 +199,24 @@ namespace ApartmentManagementSystem
         {
             if (CmbStatusFilter.SelectedItem != null)
             {
-                var selectedStatus = (int)CmbStatusFilter.SelectedValue;
-                var filteredLeases = _allLeases.Where(l => (int)l.Status == selectedStatus).ToList();
-                RefreshFilteredLeaseGrid(filteredLeases);
+                var selectedValue = (int)CmbStatusFilter.SelectedValue;
+                if (selectedValue == -1)
+                {
+                    // Show all leases
+                    RefreshLeaseGrid();
+                }
+                else
+                {
+                    // Filter by specific status
+                    var filteredLeases = _allLeases.Where(l => (int)l.Status == selectedValue).ToList();
+                    RefreshFilteredLeaseGrid(filteredLeases);
+                }
             }
         }
 
         private void BtnShowAll_Click(object sender, RoutedEventArgs e)
         {
-            CmbStatusFilter.SelectedIndex = -1;
+            CmbStatusFilter.SelectedIndex = 0; // Select "All Statuses"
             RefreshLeaseGrid();
         }
 

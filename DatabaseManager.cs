@@ -14,7 +14,7 @@ namespace ApartmentManagementSystem
         {
             try
             {
-                // Only create database if it doesn't exist - THIS FIXES THE ISSUE!
+                // Only create database if it doesn't exist
                 if (!File.Exists(DatabaseName))
                 {
                     SQLiteConnection.CreateFile(DatabaseName);
@@ -25,7 +25,6 @@ namespace ApartmentManagementSystem
                         CreateTables(connection);
                     }
                 }
-                // If database exists, do nothing - keep the data!
             }
             catch (Exception ex)
             {
@@ -39,7 +38,7 @@ namespace ApartmentManagementSystem
             {
                 using (var transaction = connection.BeginTransaction())
                 {
-                    // Create Properties table with all columns
+                    // Create Properties table
                     using (var command = new SQLiteCommand(@"
                         CREATE TABLE Properties (
                             Id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -148,7 +147,8 @@ namespace ApartmentManagementSystem
                             PaymentDate DATETIME NOT NULL,
                             DueDate DATETIME,
                             Status TEXT NOT NULL,
-                            PaymentMethod TEXT,
+                            PaymentMethod INTEGER,
+                            ReferenceNumber TEXT,
                             Notes TEXT,
                             CreatedDate DATETIME DEFAULT CURRENT_TIMESTAMP,
                             FOREIGN KEY (LeaseId) REFERENCES Leases(Id)

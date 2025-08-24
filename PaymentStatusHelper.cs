@@ -6,7 +6,7 @@
         {
             return status switch
             {
-                PaymentStatus.Paid => "Paid",
+                PaymentStatus.Completed => "Paid",
                 PaymentStatus.Pending => "Pending",
                 PaymentStatus.Overdue => "Overdue",
                 PaymentStatus.Cancelled => "Cancelled",

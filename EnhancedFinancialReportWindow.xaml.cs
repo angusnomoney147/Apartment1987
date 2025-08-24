@@ -103,7 +103,7 @@ namespace ApartmentManagementSystem
             // Filter payments
             var filteredPayments = _allPayments
                 .Where(p => p.PaymentDate >= fromDate && p.PaymentDate <= toDate)
-                .Where(p => p.Status == PaymentStatus.Paid)
+                .Where(p => p.Status == PaymentStatus.Completed)
                 .ToList();
 
             // Apply property filter
@@ -127,7 +127,7 @@ namespace ApartmentManagementSystem
                     .ToList();
             }
 
-            // Generate report data
+            // Generate report data with proper columns
             var reportData = filteredPayments.Select(p =>
             {
                 var lease = _allLeases.FirstOrDefault(l => l.Id == p.LeaseId);
@@ -137,21 +137,21 @@ namespace ApartmentManagementSystem
 
                 return new
                 {
-                    p.PaymentDate,
-                    PropertyName = property?.Name ?? "Unknown Property",
-                    UnitNumber = unit?.UnitNumber ?? "Unknown Unit",
-                    TenantName = tenant?.FullName ?? "Unknown Tenant",
-                    p.Amount,
-                    Method = PaymentMethodHelper.GetMethodName(p.Method),
+                    ID = p.Id,
+                    PaymentDate = p.PaymentDate,
                     Status = PaymentStatusHelper.GetStatusName(p.Status),
-                    p.ReferenceNumber
+                    PropertyInfo = $"{property?.Name ?? "Unknown Property"}, {unit?.UnitNumber ?? "Unknown Unit"}",
+                    RentAmount = p.Amount,
+                    TenantName = tenant?.FullName ?? "Unknown Tenant",
+                    PhoneNumber = tenant?.Phone ?? "N/A",
+                    CreatedDate = p.CreatedDate
                 };
             }).ToList();
 
             DataGridFinancialReport.ItemsSource = reportData;
 
             // Update summary
-            TxtTotalAmount.Text = $"Total Amount: ${reportData.Sum(r => r.Amount):F2}";
+            TxtTotalAmount.Text = $"Total Amount: ${reportData.Sum(r => r.RentAmount):F2}";
             TxtRecordCount.Text = $"Records: {reportData.Count}";
         }
     }

@@ -228,7 +228,7 @@ namespace ApartmentManagementSystem
 
         private void BtnPaidOnly_Click(object sender, RoutedEventArgs e)
         {
-            var paidPayments = _allPayments.Where(p => p.Status == PaymentStatus.Paid).ToList();
+            var paidPayments = _allPayments.Where(p => p.Status == PaymentStatus.Completed).ToList();
             RefreshFilteredPaymentGrid(paidPayments);
         }
 

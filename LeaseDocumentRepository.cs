@@ -11,8 +11,7 @@ namespace ApartmentManagementSystem
 
         public LeaseDocumentRepository()
         {
-            _connectionString = DatabaseHelper.GetConnectionString();
-            EnsureDocumentsDirectory();
+            _connectionString = "Data Source=apartment.db;Version=3;";
         }
 
         private void EnsureDocumentsDirectory()

@@ -53,7 +53,7 @@ namespace ApartmentManagementSystem
             try
             {
                 LoadStatistics();
-                LoadRecentActivity();
+                LoadRecentActivity(); // Remove the parameters
                 LoadVacantUnits();
                 LoadOccupiedUnits();
                 LoadTenantActivity();
@@ -66,55 +66,77 @@ namespace ApartmentManagementSystem
             }
         }
 
-
-        private void LoadRecentActivity(List<Tenant> tenants, List<Property> properties, List<MaintenanceRequest> maintenance, List<Payment> payments)
+        private void LoadRecentActivity()
         {
-            var recentActivities = new List<object>();
+            try
+            {
+                var tenants = _tenantRepository.GetAll();
+                var properties = _propertyRepository.GetAll();
+                var maintenance = _maintenanceRepository.GetAll();
+                var payments = _paymentRepository.GetAll();
 
-            var recentTenants = tenants.OrderByDescending(t => t.CreatedDate).Take(5)
-                .Select(t => new
-                {
-                    Date = t.CreatedDate,
-                    Type = "👥 New Tenant",
-                    Description = $"{t.FullName} added"
-                });
-            recentActivities.AddRange(recentTenants);
+                var recentActivities = new List<object>();
 
-            var recentProperties = properties.OrderByDescending(p => p.CreatedDate).Take(5)
-                .Select(p => new
-                {
-                    Date = p.CreatedDate,
-                    Type = "🏘️ New Property",
-                    Description = $"{p.Name} added"
-                });
-            recentActivities.AddRange(recentProperties);
+                // Recent tenants
+                var recentTenants = tenants.OrderByDescending(t => t.CreatedDate).Take(5)
+                    .Select(t => new
+                    {
+                        Date = t.CreatedDate,
+                        Type = "👥 New Tenant",
+                        Description = $"{t.FullName} added"
+                    });
+                recentActivities.AddRange(recentTenants);
 
-            var recentMaintenance = maintenance.OrderByDescending(m => m.RequestDate).Take(5)
-                .Select(m => new
-                {
-                    Date = m.RequestDate,
-                    Type = "🔧 Maintenance",
-                    Description = $"Request for Unit {GetUnitNumber(m.UnitId, _unitRepository.GetAll())}: {m.Description.Substring(0, Math.Min(30, m.Description.Length))}..."
-                });
-            recentActivities.AddRange(recentMaintenance);
+                // Recent properties
+                var recentProperties = properties.OrderByDescending(p => p.CreatedDate).Take(5)
+                    .Select(p => new
+                    {
+                        Date = p.CreatedDate,
+                        Type = "🏘️ New Property",
+                        Description = $"{p.Name} added"
+                    });
+                recentActivities.AddRange(recentProperties);
 
-            var recentPayments = payments.OrderByDescending(p => p.PaymentDate).Take(5)
-                .Select(p => new
-                {
-                    Date = p.PaymentDate,
-                    Type = "💰 Payment",
-                    Description = $"${p.Amount:F2} received for Lease {p.LeaseId}"
-                });
-            recentActivities.AddRange(recentPayments);
+                // Recent maintenance
+                var recentMaintenance = maintenance.OrderByDescending(m => m.RequestDate).Take(5)
+                    .Select(m => new
+                    {
+                        Date = m.RequestDate,
+                        Type = "🔧 Maintenance",
+                        Description = $"Request for Unit {GetUnitNumber(m.UnitId)}: {m.Description.Substring(0, Math.Min(30, m.Description.Length))}..."
+                    });
+                recentActivities.AddRange(recentMaintenance);
 
-            var sortedActivities = recentActivities.OrderByDescending(a => a.GetType().GetProperty("Date").GetValue(a)).Take(15).ToList();
-            DataGridRecentActivity.ItemsSource = sortedActivities;
+                // Recent payments
+                var recentPayments = payments.OrderByDescending(p => p.PaymentDate).Take(5)
+                    .Select(p => new
+                    {
+                        Date = p.PaymentDate,
+                        Type = "💰 Payment",
+                        Description = $"${p.Amount:F2} received for Lease {p.LeaseId}"
+                    });
+                recentActivities.AddRange(recentPayments);
+
+                var sortedActivities = recentActivities.OrderByDescending(a => a.GetType().GetProperty("Date").GetValue(a)).Take(15).ToList();
+                DataGridRecentActivity.ItemsSource = sortedActivities;
+            }
+            catch (Exception ex)
+            {
+                // Silently fail
+            }
         }
 
-        private string GetUnitNumber(int unitId, List<Unit> units)
+        private string GetUnitNumber(int unitId)
         {
-            var unit = units.FirstOrDefault(u => u.Id == unitId);
-            return unit?.UnitNumber ?? $"Unit {unitId}";
+            try
+            {
+                var unit = _unitRepository.GetById(unitId);
+                return unit?.UnitNumber ?? $"Unit {unitId}";
+            }
+            catch
+            {
+                return $"Unit {unitId}";
+            }
         }
 
         private void LoadStatistics()

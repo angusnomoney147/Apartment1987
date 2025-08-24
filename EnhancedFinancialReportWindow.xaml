@@ -56,20 +56,23 @@
         </Border>
 
         <!-- Report Grid -->
-        <DataGrid Grid.Row="2" x:Name="DataGridFinancialReport" 
-                  AutoGenerateColumns="False" 
-                  IsReadOnly="True"
-                  Margin="10"
-                  AlternatingRowBackground="#F8F9FA">
+        <DataGrid Grid.Row="1" x:Name="DataGridFinancialReport" 
+          AutoGenerateColumns="False" 
+          IsReadOnly="True"
+          SelectionMode="Single"
+          SelectionUnit="FullRow"
+          Margin="10"
+          AlternatingRowBackground="#F8F9FA">
+
             <DataGrid.Columns>
+                <DataGridTextColumn Header="ID" Binding="{Binding ID}" Width="60"/>
                 <DataGridTextColumn Header="Payment Date" Binding="{Binding PaymentDate, StringFormat='{}{0:yyyy-MM-dd}'}" Width="100"/>
-                <DataGridTextColumn Header="PropertyParams" Binding="{Binding PropertyName}" Width="150"/>
-                <DataGridTextColumn Header="Unit" Binding="{Binding UnitNumber}" Width="80"/>
-                <DataGridTextColumn Header="Tenant" Binding="{Binding TenantName}" Width="150"/>
-                <DataGridTextColumn Header="Amount ($)" Binding="{Binding Amount, StringFormat='{}{0:F2}'}" Width="100"/>
-                <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="100"/>
                 <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="80"/>
-                <DataGridTextColumn Header="Reference #" Binding="{Binding ReferenceNumber}" Width="120"/>
+                <DataGridTextColumn Header="Property, Unit" Binding="{Binding PropertyInfo}" Width="150"/>
+                <DataGridTextColumn Header="Rent Amount" Binding="{Binding RentAmount, StringFormat='{}{0:C}'}" Width="100"/>
+                <DataGridTextColumn Header="Tenant Name" Binding="{Binding TenantName}" Width="150"/>
+                <DataGridTextColumn Header="Phone" Binding="{Binding PhoneNumber}" Width="120"/>
+                <DataGridTextColumn Header="Created Date" Binding="{Binding CreatedDate, StringFormat='{}{0:yyyy-MM-dd}'}" Width="100"/>
             </DataGrid.Columns>
         </DataGrid>
 

@@ -10,7 +10,7 @@ namespace ApartmentManagementSystem
 
         public LeaseRepository()
         {
-            _connectionString = DatabaseHelper.GetConnectionString();
+            _connectionString = "Data Source=apartment.db;Version=3;";
         }
 
         public List<Lease> GetAll()
