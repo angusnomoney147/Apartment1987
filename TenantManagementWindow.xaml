@@ -52,13 +52,13 @@
                   AlternatingRowBackground="#F8F9FA">
 
             <DataGrid.Columns>
-                <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="50"/>
                 <DataGridTextColumn Header="Full Name" Binding="{Binding FullName}" Width="150"/>
                 <DataGridTextColumn Header="Email" Binding="{Binding Email}" Width="150"/>
                 <DataGridTextColumn Header="Phone" Binding="{Binding Phone}" Width="120"/>
-                <DataGridTextColumn Header="Unit" Binding="{Binding UnitNumber}" Width="80"/>
-                <DataGridTextColumn Header="Property" Binding="{Binding PropertyName}" Width="150"/>
-                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="80"/>
+                <DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="200"/>
+                <DataGridTextColumn Header="National ID" Binding="{Binding NationalId}" Width="120"/>
+                <DataGridTextColumn Header="Emergency Contact" Binding="{Binding EmergencyContact}" Width="150"/>
+                <DataGridTextColumn Header="Emergency Phone" Binding="{Binding EmergencyPhone}" Width="120"/>
             </DataGrid.Columns>
         </DataGrid>
     </Grid>

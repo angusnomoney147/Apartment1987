@@ -122,13 +122,15 @@ namespace ApartmentManagementSystem
                 }
                 else
                 {
+                    // Add the lease first
                     _leaseRepository.Add(_lease);
 
-                    // Automatically create first pending payment
-                    CreateInitialPayment(_lease);
-
-                    // Automatically update unit status to Occupied
+                    // Update unit status to Occupied
+                    System.Diagnostics.Debug.WriteLine($"About to update unit {_lease.UnitId} to Occupied status");
                     UpdateUnitStatus(_lease.UnitId, UnitStatus.Occupied);
+
+                    // Create initial payment
+                    CreateInitialPayment(_lease);
 
                     MessageBox.Show("Lease added successfully! Unit is now occupied and initial payment created.", "Success",
                                   MessageBoxButton.OK, MessageBoxImage.Information);
@@ -143,6 +145,7 @@ namespace ApartmentManagementSystem
                               MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
 
         private void CreateInitialPayment(Lease lease)
         {
@@ -175,11 +178,15 @@ namespace ApartmentManagementSystem
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine($"Updating unit {unitId} to status {status}");
                 var unitRepository = new UnitRepository();
                 unitRepository.UpdateUnitStatus(unitId, status);
+                System.Diagnostics.Debug.WriteLine($"Successfully updated unit {unitId}");
+                MainWindow.NotifyDataChanged();
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"Error updating unit status: {ex.Message}");
                 MessageBox.Show($"Error updating unit status: {ex.Message}", "Warning",
                               MessageBoxButton.OK, MessageBoxImage.Warning);
             }

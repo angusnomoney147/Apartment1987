@@ -97,10 +97,10 @@ namespace ApartmentManagementSystem
             connection.Open();
 
             const string query = @"INSERT INTO Leases 
-                                (TenantId, UnitId, StartDate, EndDate, MonthlyRent, SecurityDeposit, Terms, Status, CreatedDate)
-                                VALUES 
-                                (@TenantId, @UnitId, @StartDate, @EndDate, @MonthlyRent, @SecurityDeposit, @Terms, @Status, @CreatedDate);
-                                SELECT last_insert_rowid();";
+                        (TenantId, UnitId, StartDate, EndDate, MonthlyRent, SecurityDeposit, Terms, Status, CreatedDate)
+                        VALUES 
+                        (@TenantId, @UnitId, @StartDate, @EndDate, @MonthlyRent, @SecurityDeposit, @Terms, @Status, @CreatedDate);
+                        SELECT last_insert_rowid();";
 
             using var command = new SQLiteCommand(query, connection);
             command.Parameters.AddWithValue("@TenantId", lease.TenantId);
@@ -110,7 +110,7 @@ namespace ApartmentManagementSystem
             command.Parameters.AddWithValue("@MonthlyRent", lease.MonthlyRent);
             command.Parameters.AddWithValue("@SecurityDeposit", lease.SecurityDeposit);
             command.Parameters.AddWithValue("@Terms", lease.Terms ?? "");
-            command.Parameters.AddWithValue("@Status", lease.Status.ToString());
+            command.Parameters.AddWithValue("@Status", lease.Status.ToString()); // Store as string or cast to int
             command.Parameters.AddWithValue("@CreatedDate", lease.CreatedDate);
 
             var result = command.ExecuteScalar();

@@ -12,16 +12,22 @@ namespace ApartmentManagementSystem
     {
         private MaintenanceRequest _request;
         private readonly UnitRepository _unitRepository;
+        private readonly MaintenanceRequestRepository _maintenanceRepository;
+        private readonly PropertyRepository _propertyRepository; // Add property repository
         private readonly bool _isEditMode;
         private List<Unit> _units;
+        private List<Property> _properties; // Add properties list
 
         public AddEditMaintenanceWindow()
         {
             InitializeComponent();
             _unitRepository = new UnitRepository();
+            _maintenanceRepository = new MaintenanceRequestRepository();
+            _propertyRepository = new PropertyRepository(); // Initialize property repository
             _isEditMode = false;
             TxtHeader.Text = "🔧 Add New Maintenance Request";
             _units = _unitRepository.GetAll();
+            _properties = _propertyRepository.GetAll(); // Load properties
             InitializeForm();
         }
 
@@ -35,13 +41,24 @@ namespace ApartmentManagementSystem
 
         private void InitializeForm()
         {
-            // Populate units dropdown
-            var unitsWithInfo = _units.Select(u => new {
-                u.Id,
-                Display = $"{u.UnitNumber} - {u.UnitType}"
-            }).ToList();
-            CmbUnits.ItemsSource = unitsWithInfo;
-            CmbUnits.DisplayMemberPath = "Display";
+            // Populate units dropdown with property information (Property Name first, ordered by property name)
+            var unitsWithPropertyInfo = _units
+                .Select(u =>
+                {
+                    var property = _properties.FirstOrDefault(p => p.Id == u.PropertyId);
+                    var propertyName = property?.Name ?? "Unknown Property";
+                    return new
+                    {
+                        u.Id,
+                        PropertyName = propertyName,
+                        UnitInfo = $"{propertyName}, {u.UnitNumber}" // Property Name first, then Unit Number
+                    };
+                })
+                .OrderBy(x => x.PropertyName) // Order by property name ascending
+                .ToList();
+
+            CmbUnits.ItemsSource = unitsWithPropertyInfo;
+            CmbUnits.DisplayMemberPath = "UnitInfo";
             CmbUnits.SelectedValuePath = "Id";
 
             // Populate priority dropdown
@@ -100,16 +117,14 @@ namespace ApartmentManagementSystem
                 if (_request == null)
                     _request = new MaintenanceRequest();
 
-                _request.UnitId = (int)CmbUnits.SelectedValue;
-                var selectedUnit = _units.FirstOrDefault(u => u.Id == _request.UnitId);
-                if (selectedUnit != null)
-                {
-                    _request.UnitNumber = selectedUnit.UnitNumber;
-                    // You might want to get property name from a property repository
-                    _request.PropertyName = "Property Name"; // Replace with actual property name
-                    _request.TenantName = "Tenant Name"; // Replace with actual tenant name
-                }
+                // Get selected unit info
+                var selectedUnit = _units.FirstOrDefault(u => u.Id == (int)CmbUnits.SelectedValue);
+                var property = selectedUnit != null ? _properties.FirstOrDefault(p => p.Id == selectedUnit.PropertyId) : null;
 
+                _request.UnitId = (int)CmbUnits.SelectedValue;
+                _request.UnitNumber = selectedUnit?.UnitNumber ?? "";
+                _request.PropertyName = property?.Name ?? "Unknown Property";
+                _request.TenantName = "Tenant Name"; // You might want to get this from tenant repository
                 _request.Description = TxtDescription.Text.Trim();
                 _request.Priority = (MaintenancePriority)CmbPriority.SelectedItem;
                 _request.Status = (MaintenanceStatus)CmbStatus.SelectedItem;
@@ -118,21 +133,21 @@ namespace ApartmentManagementSystem
                 _request.RequestDate = DpRequestDate.SelectedDate ?? DateTime.Now;
                 _request.CompletedDate = DpCompletedDate.IsEnabled ? DpCompletedDate.SelectedDate : null;
 
-                var repository = new MaintenanceRequestRepository();
                 if (_isEditMode)
                 {
-                    repository.Update(_request);
+                    _maintenanceRepository.Update(_request);
                     MessageBox.Show("Maintenance request updated successfully!", "Success",
                                   MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 else
                 {
-                    repository.Add(_request);
+                    _maintenanceRepository.Add(_request);
                     MessageBox.Show("Maintenance request added successfully!", "Success",
                                   MessageBoxButton.OK, MessageBoxImage.Information);
                 }
 
                 this.DialogResult = true;
+                MainWindow.NotifyDataChanged(); // Notify main window
                 this.Close();
             }
             catch (Exception ex)

@@ -130,6 +130,7 @@ namespace ApartmentManagementSystem
             if (addRequestWindow.ShowDialog() == true)
             {
                 LoadMaintenanceRequests();
+                MainWindow.NotifyDataChanged(); // Add this line
             }
         }
 
@@ -156,6 +157,7 @@ namespace ApartmentManagementSystem
                                 request.CompletedDate = DateTime.Now;
                                 _maintenanceRepository.Update(request);
                                 LoadMaintenanceRequests();
+                                MainWindow.NotifyDataChanged(); // Add this line
                                 MessageBox.Show("Request marked as completed!", "Success",
                                               MessageBoxButton.OK, MessageBoxImage.Information);
                             }
@@ -197,6 +199,7 @@ namespace ApartmentManagementSystem
                         if (editWindow.ShowDialog() == true)
                         {
                             LoadMaintenanceRequests();
+                            MainWindow.NotifyDataChanged(); // Add this line
                         }
                     }
                 }
@@ -232,6 +235,7 @@ namespace ApartmentManagementSystem
                             {
                                 _maintenanceRepository.Delete(requestId);
                                 LoadMaintenanceRequests();
+                                MainWindow.NotifyDataChanged(); // Add this line
                                 MessageBox.Show("Request deleted successfully!", "Success",
                                               MessageBoxButton.OK, MessageBoxImage.Information);
                             }
@@ -250,7 +254,6 @@ namespace ApartmentManagementSystem
                               MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
-
         private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
         {
             var searchText = TxtSearch.Text.ToLower();

@@ -29,13 +29,12 @@ namespace ApartmentManagementSystem
                 {
                     t.Id,
                     FullName = $"{t.FirstName} {t.LastName}",
-                    t.FirstName,
-                    t.LastName,
                     t.Email,
                     t.Phone,
-                    t.UnitNumber,
-                    PropertyName = t.PropertyName ?? "No Property",
-                    Status = t.IsActive ? "Active" : "Inactive"
+                    t.Address,
+                    t.NationalId,
+                    t.EmergencyContact,
+                    t.EmergencyPhone
                 }).ToList();
 
                 DataGridTenants.ItemsSource = tenantsForDisplay;

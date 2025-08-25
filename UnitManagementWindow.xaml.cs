@@ -193,6 +193,28 @@ namespace ApartmentManagementSystem
             }
         }
 
+        private void ChangeUnitStatus(Unit unit, UnitStatus newStatus)
+        {
+            try
+            {
+                unit.Status = newStatus;
+                _unitRepository.Update(unit);
+                MainWindow.NotifyDataChanged(); // Refresh dashboard
+
+                // Reload the units display
+                if (CmbProperties.SelectedValue != null)
+                {
+                    int propertyId = (int)CmbProperties.SelectedValue;
+                    LoadUnits(propertyId);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error updating unit status: {ex.Message}", "Error",
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (_allUnits == null || CmbProperties.SelectedItem == null) return;

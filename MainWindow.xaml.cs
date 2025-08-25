@@ -196,7 +196,8 @@ namespace ApartmentManagementSystem
         {
             try
             {
-                var properties = _propertyRepository.GetAll().OrderBy(p => p.Name).ToList(); // Order by Name ascending
+                // Order properties by name ascending
+                var properties = _propertyRepository.GetAll().OrderBy(p => p.Name).ToList();
                 var units = _unitRepository.GetAll().Where(u => u.Status == UnitStatus.Vacant).ToList();
 
                 var vacantUnits = units.Select(u => new
@@ -206,7 +207,9 @@ namespace ApartmentManagementSystem
                     UnitType = u.UnitType ?? "N/A",
                     RentAmount = u.RentAmount,
                     Bedrooms = u.Bedrooms
-                }).ToList();
+                })
+                .OrderBy(x => x.PropertyName) // Order by PropertyName ascending
+                .ToList();
 
                 DataGridVacantUnits.ItemsSource = vacantUnits;
             }
@@ -221,7 +224,8 @@ namespace ApartmentManagementSystem
         {
             try
             {
-                var properties = _propertyRepository.GetAll().OrderBy(p => p.Name).ToList(); // Order by Name ascending
+                // Order properties by name ascending
+                var properties = _propertyRepository.GetAll().OrderBy(p => p.Name).ToList();
                 var units = _unitRepository.GetAll().Where(u => u.Status == UnitStatus.Occupied).ToList();
                 var leases = _leaseRepository.GetAll().Where(l => l.Status == LeaseStatus.Active).ToList();
                 var tenants = _tenantRepository.GetAll();
@@ -240,7 +244,9 @@ namespace ApartmentManagementSystem
                         MonthlyRent = lease?.MonthlyRent ?? 0,
                         LeaseEnd = lease?.EndDate ?? DateTime.MinValue
                     };
-                }).ToList();
+                })
+                .OrderBy(x => x.PropertyName) // Order by PropertyName ascending
+                .ToList();
 
                 DataGridOccupiedUnits.ItemsSource = occupiedUnits;
             }
@@ -255,7 +261,8 @@ namespace ApartmentManagementSystem
         {
             try
             {
-                var properties = _propertyRepository.GetAll().OrderBy(p => p.Name).ToList(); // Order by Name ascending
+                // Order properties by name ascending
+                var properties = _propertyRepository.GetAll().OrderBy(p => p.Name).ToList();
                 var units = _unitRepository.GetAll();
                 var leases = _leaseRepository.GetAll().Where(l => l.Status == LeaseStatus.Active).ToList();
                 var tenants = _tenantRepository.GetAll().Where(t => t.IsActive).ToList();
@@ -275,7 +282,9 @@ namespace ApartmentManagementSystem
                         MonthlyRent = l.MonthlyRent,
                         LeaseStatus = LeaseStatusHelper.GetStatusName(l.Status)
                     };
-                }).ToList();
+                })
+                .OrderBy(x => x.PropertyName) // Order by PropertyName ascending
+                .ToList();
 
                 DataGridTenantActivity.ItemsSource = tenantActivities;
             }
@@ -288,7 +297,8 @@ namespace ApartmentManagementSystem
         {
             try
             {
-                var properties = _propertyRepository.GetAll().OrderBy(p => p.Name).ToList(); // Order by Name ascending
+                // Order properties by name ascending
+                var properties = _propertyRepository.GetAll().OrderBy(p => p.Name).ToList();
                 var units = _unitRepository.GetAll();
                 var maintenanceRequests = _maintenanceRepository.GetAll()
                     .Where(m => m.Status == MaintenanceStatus.Pending || m.Status == MaintenanceStatus.InProgress)
@@ -309,7 +319,9 @@ namespace ApartmentManagementSystem
                         RequestDate = m.RequestDate,
                         AssignedTo = m.AssignedTo
                     };
-                }).ToList();
+                })
+                .OrderBy(x => x.PropertyName) // Order by PropertyName ascending
+                .ToList();
 
                 DataGridMaintenanceStatus.ItemsSource = maintenanceItems;
             }
@@ -317,6 +329,8 @@ namespace ApartmentManagementSystem
             {
             }
         }
+
+        // Make sure GetPropertyName method is correct
         private string GetPropertyName(int propertyId, List<Property> properties)
         {
             try
@@ -329,7 +343,6 @@ namespace ApartmentManagementSystem
                 return "Unknown Property";
             }
         }
-
         private void btnTenants_Click(object sender, RoutedEventArgs e)
         {
             var tenantWindow = new TenantManagementWindow();
