@@ -1,0 +1,78 @@
+﻿<Window x:Class="ApartmentManagementSystem.EnhancedPropertyReportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PropertyParams Report" Height="700" Width="1200"
+        WindowStartupLocation="CenterScreen">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="#2C3E50" Padding="15">
+            <TextBlock Text="PropertyParams Report" 
+                      Foreground="White" FontSize="18" FontWeight="Bold"/>
+        </Border>
+
+        <!-- Filters -->
+        <Border Grid.Row="1" Background="#ECF0F1" Padding="10">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="PropertyParams:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <ComboBox x:Name="CmbProperties" Width="200" Margin="0,0,20,0" 
+                         SelectionChanged="CmbProperties_SelectionChanged"/>
+                <Button x:Name="BtnGenerate" Content="🔄 Refresh" 
+                        Padding="15,5" Margin="0,0,10,0"
+                        Background="#3498DB" Foreground="White"
+                        Click="BtnGenerate_Click"/>
+                <Button x:Name="BtnExportPdf" Content="📄 PDF Export" 
+                        Padding="15,5" Margin="0,0,10,0"
+                        Background="#E74C3C" Foreground="White"
+                        Click="BtnExportPdf_Click"/>
+                <Button x:Name="BtnExportExcel" Content="📊 Excel Export" 
+                        Padding="15,5" Margin="0,0,10,0"
+                        Background="#27AE60" Foreground="White"
+                        Click="BtnExportExcel_Click"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Data Grid -->
+        <DataGrid Grid.Row="2" x:Name="DataGridPropertyReport" 
+                  AutoGenerateColumns="False" 
+                  IsReadOnly="True"
+                  SelectionMode="Single"
+                  SelectionUnit="FullRow"
+                  Margin="10"
+                  AlternatingRowBackground="#F8F9FA"
+                  CanUserSortColumns="True">
+
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="PropertyParams" Binding="{Binding PropertyName}" Width="150"/>
+                <DataGridTextColumn Header="Total Units" Binding="{Binding TotalUnits}" Width="80"/>
+                <DataGridTextColumn Header="Vacant Units" Binding="{Binding VacantUnits}" Width="80"/>
+                <DataGridTextColumn Header="Occupied Units" Binding="{Binding OccupiedUnits}" Width="80"/>
+                <DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="150"/>
+                <DataGridTextColumn Header="City" Binding="{Binding City}" Width="100"/>
+                <DataGridTextColumn Header="Manager" Binding="{Binding ManagerName}" Width="120"/>
+                <DataGridTextColumn Header="Phone" Binding="{Binding ContactInfo}" Width="120"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Summary -->
+        <Border Grid.Row="3" Background="#ECF0F1" Padding="10">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock x:Name="TxtSummary" Text="Total Properties: 0" 
+                          FontWeight="Bold" Margin="0,0,20,0"/>
+                <TextBlock x:Name="TxtTotalUnits" Text="Total Units: 0" 
+                          FontWeight="Bold" Margin="0,0,20,0"/>
+                <TextBlock x:Name="TxtVacantUnits" Text="Vacant Units: 0" 
+                          FontWeight="Bold" Margin="0,0,20,0"/>
+                <TextBlock x:Name="TxtOccupiedUnits" Text="Occupied Units: 0" 
+                          FontWeight="Bold"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

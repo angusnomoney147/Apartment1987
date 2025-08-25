@@ -130,7 +130,7 @@
                     </TabItem>
 
                     <!-- Vacant Units Tab -->
-                    <TabItem Header="PropertyParams - Vacant">
+                    <TabItem Header="🏘️PropertyParams - Vacant">
                         <Border Background="White" CornerRadius="10" Margin="5" Padding="15">
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Top" Text="Vacant Units" FontSize="16" FontWeight="Bold" 
@@ -153,7 +153,7 @@
                     </TabItem>
 
                     <!-- Occupied Units Tab -->
-                    <TabItem Header="PropertyParams - Occupied">
+                    <TabItem Header="🏠PropertyParams - Occupied">
                         <Border Background="White" CornerRadius="10" Margin="5" Padding="15">
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Top" Text="Occupied Units" FontSize="16" FontWeight="Bold" 

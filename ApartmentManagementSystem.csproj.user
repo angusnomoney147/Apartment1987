@@ -26,6 +26,9 @@
     <Compile Update="EnhancedFinancialReportWindow.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Update="EnhancedPropertyReportWindow.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Update="LeaseDocumentsWindow.xaml.cs">
       <SubType>Code</SubType>
     </Compile>

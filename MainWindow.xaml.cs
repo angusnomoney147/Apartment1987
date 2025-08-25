@@ -383,15 +383,12 @@ namespace ApartmentManagementSystem
         {
             try
             {
-                var properties = _propertyRepository.GetAll();
-                var units = _unitRepository.GetAll();
-                var reportContent = ReportHelper.GeneratePropertyReport(properties, units);
-                var reportWindow = new ReportViewerWindow("PropertyParams Report", reportContent);
-                reportWindow.Show();
+                var propertyReportWindow = new EnhancedPropertyReportWindow();
+                propertyReportWindow.Show();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error generating property report: {ex.Message}", "Error",
+                MessageBox.Show($"Error opening property report: {ex.Message}", "Error",
                               MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
