@@ -167,21 +167,21 @@ namespace ApartmentManagementSystem
                 var writer = PdfWriter.GetInstance(document, new FileStream(fileName, FileMode.Create));
                 document.Open();
 
-                // Professional Invoice Template
+                // Professional Receipt Template
                 var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 20);
                 var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 12);
                 var normalFont = FontFactory.GetFont(FontFactory.HELVETICA, 10);
                 var smallFont = FontFactory.GetFont(FontFactory.HELVETICA, 8);
 
                 // Company Header
-                var companyHeader = new Paragraph("INVOICE", titleFont)
+                var companyHeader = new Paragraph("LEASE PAYMENT RECEIPT", titleFont)
                 {
                     Alignment = Element.ALIGN_CENTER,
                     SpacingAfter = 30
                 };
                 document.Add(companyHeader);
 
-                // Invoice Details Table
+                // Receipt Details Table
                 var detailsTable = new PdfPTable(2) { WidthPercentage = 100 };
                 detailsTable.SetWidths(new float[] { 1f, 1f });
 
@@ -198,7 +198,7 @@ namespace ApartmentManagementSystem
                 leftCell.AddElement(leftContent);
                 detailsTable.AddCell(leftCell);
 
-                // Right side - To & Invoice Info
+                // Right side - To & Receipt Info
                 var rightCell = new PdfPCell();
                 rightCell.Border = PdfPCell.NO_BORDER;
 
@@ -209,12 +209,12 @@ namespace ApartmentManagementSystem
                 rightContent.Add(new Chunk($"Phone: {tenant?.Phone ?? "N/A"}\n", normalFont));
                 rightContent.Add(new Chunk($"Email: {tenant?.Email ?? "N/A"}\n\n", normalFont));
 
-                rightContent.Add(new Chunk("INVOICE #:", headerFont));
-                rightContent.Add(new Chunk($" INV-{payment.Id:D6}\n", normalFont));
+                rightContent.Add(new Chunk("RECEIPT #:", headerFont));
+                rightContent.Add(new Chunk($" RCT-{payment.Id:D6}\n", normalFont));
                 rightContent.Add(new Chunk("DATE:", headerFont));
                 rightContent.Add(new Chunk($" {payment.PaymentDate:MM/dd/yyyy}\n", normalFont));
-                rightContent.Add(new Chunk("DUE DATE:", headerFont));
-                rightContent.Add(new Chunk($" {lease?.EndDate:MM/dd/yyyy}\n", normalFont));
+                rightContent.Add(new Chunk("FOR PERIOD:", headerFont));
+                rightContent.Add(new Chunk($" {payment.PaymentDate:MMMM yyyy}\n", normalFont)); // Monthly period
 
                 rightCell.AddElement(rightContent);
                 detailsTable.AddCell(rightCell);
@@ -233,8 +233,8 @@ namespace ApartmentManagementSystem
                 itemsTable.AddCell(CreatePdfCell("TAX", headerFont, BaseColor.LIGHT_GRAY));
                 itemsTable.AddCell(CreatePdfCell("TOTAL", headerFont, BaseColor.LIGHT_GRAY));
 
-                // Item Row
-                itemsTable.AddCell(CreatePdfCell($"Monthly Rent - {property?.Name ?? "Unknown Property"}, Unit {unit?.UnitNumber ?? "Unknown Unit"}", normalFont));
+                // Item Row - Monthly Payment
+                itemsTable.AddCell(CreatePdfCell($"Monthly Lease Payment - {property?.Name ?? "Unknown Property"}, Unit {unit?.UnitNumber ?? "Unknown Unit"}", normalFont));
                 itemsTable.AddCell(CreatePdfCell("1", normalFont));
                 itemsTable.AddCell(CreatePdfCell($"${payment.Amount:F2}", normalFont));
                 itemsTable.AddCell(CreatePdfCell("$0.00", normalFont));
@@ -262,7 +262,7 @@ namespace ApartmentManagementSystem
                 itemsTable.AddCell(CreatePdfCell("", normalFont));
                 itemsTable.AddCell(CreatePdfCell("", normalFont));
                 itemsTable.AddCell(CreatePdfCell("", normalFont));
-                itemsTable.AddCell(CreatePdfCell("TOTAL", headerFont));
+                itemsTable.AddCell(CreatePdfCell("TOTAL PAID", headerFont));
                 itemsTable.AddCell(CreatePdfCell($"${payment.Amount:F2}", headerFont));
 
                 document.Add(itemsTable);
@@ -275,11 +275,19 @@ namespace ApartmentManagementSystem
                 };
                 document.Add(paymentMethod);
 
+                // Payment Status
+                document.Add(new Paragraph(" ") { SpacingAfter = 20 });
+                var paymentStatus = new Paragraph($"PAYMENT STATUS: {PaymentStatusHelper.GetStatusName(payment.Status)}", normalFont)
+                {
+                    Alignment = Element.ALIGN_LEFT
+                };
+                document.Add(paymentStatus);
+
                 // Notes
                 document.Add(new Paragraph(" ") { SpacingAfter = 20 });
                 var notes = new Paragraph("NOTES", headerFont);
                 document.Add(notes);
-                var notesContent = new Paragraph("Thank you for your payment. Please keep this invoice for your records.", normalFont);
+                var notesContent = new Paragraph("This receipt confirms receipt of monthly lease payment. Please retain this receipt for your records.", normalFont);
                 document.Add(notesContent);
 
                 // Footer
@@ -290,7 +298,7 @@ namespace ApartmentManagementSystem
                 };
                 document.Add(separator);
 
-                var footer = new Paragraph("THANK YOU FOR YOUR BUSINESS!", headerFont)
+                var footer = new Paragraph("THANK YOU FOR YOUR PAYMENT!", headerFont)
                 {
                     Alignment = Element.ALIGN_CENTER,
                     SpacingAfter = 10
@@ -314,16 +322,15 @@ namespace ApartmentManagementSystem
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error generating PDF invoice: {ex.Message}", ex);
+                throw new Exception($"Error generating PDF receipt: {ex.Message}", ex);
             }
         }
-
         private void GenerateWordInvoice(string fileName, Payment payment, Lease lease, Unit unit, Tenant tenant, Property property)
         {
             try
             {
-                // Simple text version for Word (you can enhance this with proper Word interop if needed)
-                var content = $@"INVOICE
+                // Simple text version for Word
+                var content = $@"LEASE PAYMENT RECEIPT
 
 FROM:
 Apartment Management System
@@ -338,27 +345,28 @@ TO:
 Phone: {tenant?.Phone ?? "N/A"}
 Email: {tenant?.Email ?? "N/A"}
 
-INVOICE #: INV-{payment.Id:D6}
+RECEIPT #: RCT-{payment.Id:D6}
 DATE: {payment.PaymentDate:MM/dd/yyyy}
-DUE DATE: {lease?.EndDate:MM/dd/yyyy}
+FOR PERIOD: {payment.PaymentDate:MMMM yyyy}
 
 -------------------------------------------------------------------------------
 
 DESCRIPTION                                    QTY    UNIT PRICE    TAX      TOTAL
-{property?.Name ?? "Unknown Property"}, Unit {unit?.UnitNumber ?? "Unknown Unit"}    1      ${payment.Amount:F2}       $0.00    ${payment.Amount:F2}
+Monthly Lease Payment - {property?.Name ?? "Unknown Property"}, Unit {unit?.UnitNumber ?? "Unknown Unit"}    1      ${payment.Amount:F2}       $0.00    ${payment.Amount:F2}
 
                                                SUBTOTAL:           ${payment.Amount:F2}
                                                TAX:                $0.00
-                                               TOTAL:              ${payment.Amount:F2}
+                                               TOTAL PAID:         ${payment.Amount:F2}
 
 PAYMENT METHOD: {PaymentMethodHelper.GetMethodName(payment.Method)}
+PAYMENT STATUS: {PaymentStatusHelper.GetStatusName(payment.Status)}
 
 NOTES:
-Thank you for your payment. Please keep this invoice for your records.
+This receipt confirms receipt of monthly lease payment. Please retain this receipt for your records.
 
 -------------------------------------------------------------------------------
 
-THANK YOU FOR YOUR BUSINESS!
+THANK YOU FOR YOUR PAYMENT!
 
 Apartment Management System
 123 Property Management St.
@@ -371,10 +379,9 @@ Website: www.apartmentmgmt.com";
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error generating Word invoice: {ex.Message}", ex);
+                throw new Exception($"Error generating Word receipt: {ex.Message}", ex);
             }
         }
-
         private PdfPCell CreatePdfCell(string text, Font font, BaseColor backgroundColor = null)
         {
             var cell = new PdfPCell(new Phrase(text, font))
