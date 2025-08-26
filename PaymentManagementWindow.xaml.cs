@@ -1,5 +1,9 @@
-﻿using System;
+﻿using iTextSharp.text.pdf;
+using iTextSharp.text;
+using Microsoft.Win32;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -56,13 +60,16 @@ namespace ApartmentManagementSystem
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine("Loading all data...");
                 _allPayments = _paymentRepository.GetAll();
                 _allLeases = _leaseRepository.GetAll();
                 _allUnits = _unitRepository.GetAll();
                 _allTenants = _tenantRepository.GetAll();
                 _allProperties = _propertyRepository.GetAll();
 
+                System.Diagnostics.Debug.WriteLine($"Loaded {_allPayments.Count} payments");
                 RefreshPaymentGrid();
+                System.Diagnostics.Debug.WriteLine("Data grid refreshed");
             }
             catch (Exception ex)
             {
@@ -71,21 +78,355 @@ namespace ApartmentManagementSystem
             }
         }
 
+        private void BtnGenerateInvoice_Click(object sender, RoutedEventArgs e)
+        {
+            if (DataGridPayments.SelectedItem != null)
+            {
+                try
+                {
+                    // Get the selected payment ID
+                    var selectedItem = DataGridPayments.SelectedItem;
+                    var paymentIdProperty = selectedItem.GetType().GetProperty("Id");
+                    int selectedPaymentId = paymentIdProperty != null ? (int)paymentIdProperty.GetValue(selectedItem) : 0;
+
+                    if (selectedPaymentId > 0)
+                    {
+                        // Get the full payment object with all details
+                        var paymentRepository = new PaymentRepository();
+                        var payment = paymentRepository.GetById(selectedPaymentId);
+
+                        if (payment != null)
+                        {
+                            // Get related data
+                            var leaseRepository = new LeaseRepository();
+                            var unitRepository = new UnitRepository();
+                            var tenantRepository = new TenantRepository();
+                            var propertyRepository = new PropertyRepository();
+
+                            var lease = leaseRepository.GetById(payment.LeaseId);
+                            var unit = lease != null ? unitRepository.GetById(lease.UnitId) : null;
+                            var tenant = lease != null ? tenantRepository.GetById(lease.TenantId) : null;
+                            var property = unit != null ? propertyRepository.GetById(unit.PropertyId) : null;
+
+                            // Generate professional invoice
+                            GenerateProfessionalInvoice(payment, lease, unit, tenant, property);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error generating invoice: {ex.Message}", "Error",
+                                  MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            else
+            {
+                MessageBox.Show("Please select a payment to generate invoice.", "Information",
+                              MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        private void GenerateProfessionalInvoice(Payment payment, Lease lease, Unit unit, Tenant tenant, Property property)
+        {
+            try
+            {
+                var saveDialog = new SaveFileDialog
+                {
+                    Filter = "PDF Files (*.pdf)|*.pdf|Word Files (*.docx)|*.docx",
+                    FileName = $"Invoice_{payment.Id}_{DateTime.Now:yyyyMMdd}.pdf"
+                };
+
+                if (saveDialog.ShowDialog() == true)
+                {
+                    if (saveDialog.FileName.EndsWith(".pdf"))
+                    {
+                        GeneratePdfInvoice(saveDialog.FileName, payment, lease, unit, tenant, property);
+                        MessageBox.Show("Professional invoice generated successfully!", "Success",
+                                      MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    else
+                    {
+                        GenerateWordInvoice(saveDialog.FileName, payment, lease, unit, tenant, property);
+                        MessageBox.Show("Professional invoice generated successfully!", "Success",
+                                      MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error generating invoice: {ex.Message}", "Error",
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void GeneratePdfInvoice(string fileName, Payment payment, Lease lease, Unit unit, Tenant tenant, Property property)
+        {
+            try
+            {
+                var document = new Document(PageSize.A4, 50, 50, 25, 25);
+                var writer = PdfWriter.GetInstance(document, new FileStream(fileName, FileMode.Create));
+                document.Open();
+
+                // Professional Invoice Template
+                var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 20);
+                var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 12);
+                var normalFont = FontFactory.GetFont(FontFactory.HELVETICA, 10);
+                var smallFont = FontFactory.GetFont(FontFactory.HELVETICA, 8);
+
+                // Company Header
+                var companyHeader = new Paragraph("INVOICE", titleFont)
+                {
+                    Alignment = Element.ALIGN_CENTER,
+                    SpacingAfter = 30
+                };
+                document.Add(companyHeader);
+
+                // Invoice Details Table
+                var detailsTable = new PdfPTable(2) { WidthPercentage = 100 };
+                detailsTable.SetWidths(new float[] { 1f, 1f });
+
+                // Left side - From
+                var leftCell = new PdfPCell();
+                leftCell.Border = PdfPCell.NO_BORDER;
+                var leftContent = new Paragraph();
+                leftContent.Add(new Chunk("FROM:\n", headerFont));
+                leftContent.Add(new Chunk("Apartment Management System\n", normalFont));
+                leftContent.Add(new Chunk("123 Property Management St.\n", normalFont));
+                leftContent.Add(new Chunk("Business City, BC 12345\n", normalFont));
+                leftContent.Add(new Chunk("Phone: (555) 123-4567\n", normalFont));
+                leftContent.Add(new Chunk("Email: info@apartmentmgmt.com\n", normalFont));
+                leftCell.AddElement(leftContent);
+                detailsTable.AddCell(leftCell);
+
+                // Right side - To & Invoice Info
+                var rightCell = new PdfPCell();
+                rightCell.Border = PdfPCell.NO_BORDER;
+
+                var rightContent = new Paragraph();
+                rightContent.Add(new Chunk("TO:\n", headerFont));
+                rightContent.Add(new Chunk($"{tenant?.FullName ?? "Unknown Tenant"}\n", normalFont));
+                rightContent.Add(new Chunk($"{tenant?.Address ?? "Unknown Address"}\n", normalFont));
+                rightContent.Add(new Chunk($"Phone: {tenant?.Phone ?? "N/A"}\n", normalFont));
+                rightContent.Add(new Chunk($"Email: {tenant?.Email ?? "N/A"}\n\n", normalFont));
+
+                rightContent.Add(new Chunk("INVOICE #:", headerFont));
+                rightContent.Add(new Chunk($" INV-{payment.Id:D6}\n", normalFont));
+                rightContent.Add(new Chunk("DATE:", headerFont));
+                rightContent.Add(new Chunk($" {payment.PaymentDate:MM/dd/yyyy}\n", normalFont));
+                rightContent.Add(new Chunk("DUE DATE:", headerFont));
+                rightContent.Add(new Chunk($" {lease?.EndDate:MM/dd/yyyy}\n", normalFont));
+
+                rightCell.AddElement(rightContent);
+                detailsTable.AddCell(rightCell);
+
+                document.Add(detailsTable);
+                document.Add(new Paragraph(" ") { SpacingAfter = 20 });
+
+                // Items Table
+                var itemsTable = new PdfPTable(5) { WidthPercentage = 100 };
+                itemsTable.SetWidths(new float[] { 3f, 1f, 1f, 1f, 1f });
+
+                // Table Headers
+                itemsTable.AddCell(CreatePdfCell("DESCRIPTION", headerFont, BaseColor.LIGHT_GRAY));
+                itemsTable.AddCell(CreatePdfCell("QTY", headerFont, BaseColor.LIGHT_GRAY));
+                itemsTable.AddCell(CreatePdfCell("UNIT PRICE", headerFont, BaseColor.LIGHT_GRAY));
+                itemsTable.AddCell(CreatePdfCell("TAX", headerFont, BaseColor.LIGHT_GRAY));
+                itemsTable.AddCell(CreatePdfCell("TOTAL", headerFont, BaseColor.LIGHT_GRAY));
+
+                // Item Row
+                itemsTable.AddCell(CreatePdfCell($"Monthly Rent - {property?.Name ?? "Unknown Property"}, Unit {unit?.UnitNumber ?? "Unknown Unit"}", normalFont));
+                itemsTable.AddCell(CreatePdfCell("1", normalFont));
+                itemsTable.AddCell(CreatePdfCell($"${payment.Amount:F2}", normalFont));
+                itemsTable.AddCell(CreatePdfCell("$0.00", normalFont));
+                itemsTable.AddCell(CreatePdfCell($"${payment.Amount:F2}", normalFont));
+
+                // Empty rows for spacing
+                itemsTable.AddCell(CreatePdfCell("", normalFont));
+                itemsTable.AddCell(CreatePdfCell("", normalFont));
+                itemsTable.AddCell(CreatePdfCell("", normalFont));
+                itemsTable.AddCell(CreatePdfCell("", normalFont));
+                itemsTable.AddCell(CreatePdfCell("", normalFont));
+
+                itemsTable.AddCell(CreatePdfCell("", normalFont));
+                itemsTable.AddCell(CreatePdfCell("", normalFont));
+                itemsTable.AddCell(CreatePdfCell("", normalFont));
+                itemsTable.AddCell(CreatePdfCell("SUBTOTAL", headerFont));
+                itemsTable.AddCell(CreatePdfCell($"${payment.Amount:F2}", headerFont));
+
+                itemsTable.AddCell(CreatePdfCell("", normalFont));
+                itemsTable.AddCell(CreatePdfCell("", normalFont));
+                itemsTable.AddCell(CreatePdfCell("", normalFont));
+                itemsTable.AddCell(CreatePdfCell("TAX", headerFont));
+                itemsTable.AddCell(CreatePdfCell("$0.00", headerFont));
+
+                itemsTable.AddCell(CreatePdfCell("", normalFont));
+                itemsTable.AddCell(CreatePdfCell("", normalFont));
+                itemsTable.AddCell(CreatePdfCell("", normalFont));
+                itemsTable.AddCell(CreatePdfCell("TOTAL", headerFont));
+                itemsTable.AddCell(CreatePdfCell($"${payment.Amount:F2}", headerFont));
+
+                document.Add(itemsTable);
+
+                // Payment Method
+                document.Add(new Paragraph(" ") { SpacingAfter = 20 });
+                var paymentMethod = new Paragraph($"PAYMENT METHOD: {PaymentMethodHelper.GetMethodName(payment.Method)}", normalFont)
+                {
+                    Alignment = Element.ALIGN_LEFT
+                };
+                document.Add(paymentMethod);
+
+                // Notes
+                document.Add(new Paragraph(" ") { SpacingAfter = 20 });
+                var notes = new Paragraph("NOTES", headerFont);
+                document.Add(notes);
+                var notesContent = new Paragraph("Thank you for your payment. Please keep this invoice for your records.", normalFont);
+                document.Add(notesContent);
+
+                // Footer
+                document.Add(new Paragraph(" ") { SpacingBefore = 30 });
+                var separator = new Paragraph(new string('-', 80), smallFont)
+                {
+                    Alignment = Element.ALIGN_CENTER
+                };
+                document.Add(separator);
+
+                var footer = new Paragraph("THANK YOU FOR YOUR BUSINESS!", headerFont)
+                {
+                    Alignment = Element.ALIGN_CENTER,
+                    SpacingAfter = 10
+                };
+                document.Add(footer);
+
+                var companyInfo = new Paragraph("Apartment Management System • 123 Property Management St. • Business City, BC 12345", smallFont)
+                {
+                    Alignment = Element.ALIGN_CENTER,
+                    SpacingAfter = 5
+                };
+                document.Add(companyInfo);
+
+                var contactInfo = new Paragraph("Phone: (555) 123-4567 • Email: info@apartmentmgmt.com • Website: www.apartmentmgmt.com", smallFont)
+                {
+                    Alignment = Element.ALIGN_CENTER
+                };
+                document.Add(contactInfo);
+
+                document.Close();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error generating PDF invoice: {ex.Message}", ex);
+            }
+        }
+
+        private void GenerateWordInvoice(string fileName, Payment payment, Lease lease, Unit unit, Tenant tenant, Property property)
+        {
+            try
+            {
+                // Simple text version for Word (you can enhance this with proper Word interop if needed)
+                var content = $@"INVOICE
+
+FROM:
+Apartment Management System
+123 Property Management St.
+Business City, BC 12345
+Phone: (555) 123-4567
+Email: info@apartmentmgmt.com
+
+TO:
+{tenant?.FullName ?? "Unknown Tenant"}
+{tenant?.Address ?? "Unknown Address"}
+Phone: {tenant?.Phone ?? "N/A"}
+Email: {tenant?.Email ?? "N/A"}
+
+INVOICE #: INV-{payment.Id:D6}
+DATE: {payment.PaymentDate:MM/dd/yyyy}
+DUE DATE: {lease?.EndDate:MM/dd/yyyy}
+
+-------------------------------------------------------------------------------
+
+DESCRIPTION                                    QTY    UNIT PRICE    TAX      TOTAL
+{property?.Name ?? "Unknown Property"}, Unit {unit?.UnitNumber ?? "Unknown Unit"}    1      ${payment.Amount:F2}       $0.00    ${payment.Amount:F2}
+
+                                               SUBTOTAL:           ${payment.Amount:F2}
+                                               TAX:                $0.00
+                                               TOTAL:              ${payment.Amount:F2}
+
+PAYMENT METHOD: {PaymentMethodHelper.GetMethodName(payment.Method)}
+
+NOTES:
+Thank you for your payment. Please keep this invoice for your records.
+
+-------------------------------------------------------------------------------
+
+THANK YOU FOR YOUR BUSINESS!
+
+Apartment Management System
+123 Property Management St.
+Business City, BC 12345
+Phone: (555) 123-4567
+Email: info@apartmentmgmt.com
+Website: www.apartmentmgmt.com";
+
+                System.IO.File.WriteAllText(fileName, content);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error generating Word invoice: {ex.Message}", ex);
+            }
+        }
+
+        private PdfPCell CreatePdfCell(string text, Font font, BaseColor backgroundColor = null)
+        {
+            var cell = new PdfPCell(new Phrase(text, font))
+            {
+                Padding = 8,
+                HorizontalAlignment = Element.ALIGN_LEFT
+            };
+
+            if (backgroundColor != null)
+            {
+                cell.BackgroundColor = backgroundColor;
+            }
+
+            return cell;
+        }
+
         private void RefreshPaymentGrid()
         {
-            var paymentsWithInfo = _allPayments.Select(p => new
+            try
             {
-                p.Id,
-                LeaseInfo = GetLeaseInfo(p.LeaseId),
-                p.Amount,
-                p.PaymentDate,
-                Method = PaymentMethodHelper.GetMethodName(p.Method),
-                p.ReferenceNumber,
-                Status = PaymentStatusHelper.GetStatusName(p.Status),
-                p.Notes
-            }).ToList();
+                var paymentsWithInfo = new List<object>();
 
-            DataGridPayments.ItemsSource = paymentsWithInfo;
+                foreach (var p in _allPayments)
+                {
+                    try
+                    {
+                        var paymentInfo = new
+                        {
+                            p.Id,
+                            LeaseInfo = GetLeaseInfo(p.LeaseId),
+                            p.Amount,
+                            p.PaymentDate,
+                            Method = PaymentMethodHelper.GetMethodName(p.Method),
+                            p.ReferenceNumber,
+                            Status = PaymentStatusHelper.GetStatusName(p.Status),
+                            p.Notes
+                        };
+                        paymentsWithInfo.Add(paymentInfo);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error processing payment {p.Id}: {ex.Message}");
+                    }
+                }
+
+                DataGridPayments.ItemsSource = paymentsWithInfo;
+                System.Diagnostics.Debug.WriteLine($"Refreshed {paymentsWithInfo.Count} payments in grid");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error in RefreshPaymentGrid: {ex.Message}");
+            }
         }
 
         private string GetLeaseInfo(int leaseId)
@@ -110,6 +451,7 @@ namespace ApartmentManagementSystem
         {
             var mainWindow = Application.Current.Windows.OfType<MainWindow>().FirstOrDefault();
             mainWindow?.ManualRefresh();
+            MainWindow.NotifyDataChanged();
         }
 
         private void BtnAddPayment_Click(object sender, RoutedEventArgs e)
@@ -117,8 +459,12 @@ namespace ApartmentManagementSystem
             var addPaymentWindow = new AddEditPaymentWindow(_allLeases, _allUnits, _allTenants, _allProperties);
             if (addPaymentWindow.ShowDialog() == true)
             {
-                LoadAllData(); // Refresh the list
-                NotifyParentOfChanges(); // Add this line
+                LoadAllData();
+                NotifyParentOfChanges();
+                RefreshPaymentGrid();
+
+                MessageBox.Show("Payment list refreshed!", "Info",
+                              MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 

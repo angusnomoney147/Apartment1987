@@ -70,7 +70,7 @@ namespace ApartmentManagementSystem
             CmbStatus.ItemsSource = statuses;
             CmbStatus.DisplayMemberPath = "Name";
             CmbStatus.SelectedValuePath = "Value";
-            CmbStatus.SelectedIndex = 0; // Default to Paid
+            CmbStatus.SelectedIndex = 0; // Default to Completed/Paid
 
             // Set default payment date
             DpPaymentDate.SelectedDate = DateTime.Now;
@@ -115,13 +115,47 @@ namespace ApartmentManagementSystem
                 if (_payment == null)
                     _payment = new Payment();
 
+                // Log all values before saving
+                System.Diagnostics.Debug.WriteLine("=== Payment Save Debug ===");
+                System.Diagnostics.Debug.WriteLine($"LeaseId: {CmbLeases.SelectedValue}");
+                System.Diagnostics.Debug.WriteLine($"Amount: {TxtAmount.Text}");
+                System.Diagnostics.Debug.WriteLine($"PaymentDate: {DpPaymentDate.SelectedDate}");
+                System.Diagnostics.Debug.WriteLine($"Method SelectedValue: {CmbMethod.SelectedValue} (Type: {CmbMethod.SelectedValue?.GetType()})");
+                System.Diagnostics.Debug.WriteLine($"Status SelectedValue: {CmbStatus.SelectedValue} (Type: {CmbStatus.SelectedValue?.GetType()})");
+
                 _payment.LeaseId = (int)CmbLeases.SelectedValue;
                 _payment.Amount = decimal.TryParse(TxtAmount.Text, out decimal amount) ? amount : 0;
                 _payment.PaymentDate = DpPaymentDate.SelectedDate ?? DateTime.Now;
-                _payment.Method = (PaymentMethod)CmbMethod.SelectedValue;
+
+                // Safe enum casting
+                if (CmbMethod.SelectedValue != null)
+                {
+                    var methodValue = Convert.ToInt32(CmbMethod.SelectedValue);
+                    System.Diagnostics.Debug.WriteLine($"Method Value: {methodValue}");
+                    _payment.Method = (PaymentMethod)methodValue;
+                }
+                else
+                {
+                    _payment.Method = PaymentMethod.Other;
+                }
+
                 _payment.ReferenceNumber = string.IsNullOrWhiteSpace(TxtReferenceNumber.Text) ? null : TxtReferenceNumber.Text.Trim();
-                _payment.Status = (PaymentStatus)CmbStatus.SelectedValue;
+
+                if (CmbStatus.SelectedValue != null)
+                {
+                    var statusValue = Convert.ToInt32(CmbStatus.SelectedValue);
+                    System.Diagnostics.Debug.WriteLine($"Status Value: {statusValue}");
+                    _payment.Status = (PaymentStatus)statusValue;
+                }
+                else
+                {
+                    _payment.Status = PaymentStatus.Pending;
+                }
+
                 _payment.Notes = string.IsNullOrWhiteSpace(TxtNotes.Text) ? null : TxtNotes.Text.Trim();
+                _payment.CreatedDate = DateTime.Now;
+
+                System.Diagnostics.Debug.WriteLine($"Saving Payment - Method: {_payment.Method}, Status: {_payment.Status}");
 
                 if (_isEditMode)
                 {
@@ -141,6 +175,7 @@ namespace ApartmentManagementSystem
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"Error saving payment: {ex}");
                 MessageBox.Show($"Error saving payment: {ex.Message}", "Error",
                               MessageBoxButton.OK, MessageBoxImage.Error);
             }
@@ -172,6 +207,22 @@ namespace ApartmentManagementSystem
                 return false;
             }
 
+            if (CmbMethod.SelectedValue == null)
+            {
+                MessageBox.Show("Please select a payment method.", "Validation Error",
+                              MessageBoxButton.OK, MessageBoxImage.Warning);
+                CmbMethod.Focus();
+                return false;
+            }
+
+            if (CmbStatus.SelectedValue == null)
+            {
+                MessageBox.Show("Please select a payment status.", "Validation Error",
+                              MessageBoxButton.OK, MessageBoxImage.Warning);
+                CmbStatus.Focus();
+                return false;
+            }
+
             return true;
         }
 
@@ -194,6 +245,19 @@ namespace ApartmentManagementSystem
                 return false;
 
             return Regex.IsMatch(text, @"^[0-9.]$");
+        }
+
+        private void CmbLeases_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // Optional: Auto-fill amount based on selected lease
+            if (CmbLeases.SelectedValue != null)
+            {
+                var selectedLease = _leases.FirstOrDefault(l => l.Id == (int)CmbLeases.SelectedValue);
+                if (selectedLease != null && string.IsNullOrEmpty(TxtAmount.Text))
+                {
+                    TxtAmount.Text = selectedLease.MonthlyRent.ToString("F2");
+                }
+            }
         }
     }
 }

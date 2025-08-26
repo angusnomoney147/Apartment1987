@@ -1,17 +1,16 @@
-﻿namespace ApartmentManagementSystem
+﻿using ApartmentManagementSystem;
+
+public static class PaymentStatusHelper
 {
-    public static class PaymentStatusHelper
+    public static string GetStatusName(PaymentStatus status)
     {
-        public static string GetStatusName(PaymentStatus status)
+        return status switch
         {
-            return status switch
-            {
-                PaymentStatus.Completed => "Paid",
-                PaymentStatus.Pending => "Pending",
-                PaymentStatus.Overdue => "Overdue",
-                PaymentStatus.Cancelled => "Cancelled",
-                _ => "Unknown"
-            };
-        }
+            PaymentStatus.Pending => "Pending",
+            PaymentStatus.Completed => "Paid",
+            PaymentStatus.Overdue => "Overdue",
+            PaymentStatus.Cancelled => "Cancelled",
+            _ => status.ToString()
+        };
     }
 }
