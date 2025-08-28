@@ -25,26 +25,19 @@ namespace ApartmentManagementSystem
 
             while (reader.Read())
             {
-                try
+                payments.Add(new Payment
                 {
-                    var payment = new Payment
-                    {
-                        Id = GetInt32(reader, "Id", 0),
-                        LeaseId = GetInt32(reader, "LeaseId", 0),
-                        Amount = GetDecimal(reader, "Amount", 0),
-                        PaymentDate = GetDateTime(reader, "PaymentDate", DateTime.Now),
-                        Method = GetPaymentMethod(reader, "PaymentMethod", PaymentMethod.Other),
-                        ReferenceNumber = GetString(reader, "ReferenceNumber", ""),
-                        Status = GetPaymentStatus(reader, "Status", PaymentStatus.Pending),
-                        Notes = GetString(reader, "Notes", ""),
-                        CreatedDate = GetDateTime(reader, "CreatedDate", DateTime.Now)
-                    };
-                    payments.Add(payment);
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Error loading payment: {ex.Message}");
-                }
+                    Id = Convert.ToInt32(reader["Id"]),
+                    LeaseId = Convert.ToInt32(reader["LeaseId"]),
+                    Amount = Convert.ToDecimal(reader["Amount"] ?? 0),
+                    PaymentDate = reader["PaymentDate"] != DBNull.Value ? Convert.ToDateTime(reader["PaymentDate"]) : DateTime.Now,
+                    DueDate = reader["DueDate"] != DBNull.Value ? Convert.ToDateTime(reader["DueDate"]) : (DateTime?)null,
+                    Status = (PaymentStatus)Convert.ToInt32(reader["Status"] ?? 0),
+                    Method = (PaymentMethod)Convert.ToInt32(reader["PaymentMethod"] ?? 0),
+                    ReferenceNumber = reader["ReferenceNumber"]?.ToString() ?? string.Empty,
+                    Notes = reader["Notes"]?.ToString() ?? string.Empty,
+                    CreatedDate = reader["CreatedDate"] != DBNull.Value ? Convert.ToDateTime(reader["CreatedDate"]) : DateTime.Now
+                });
             }
             return payments;
         }

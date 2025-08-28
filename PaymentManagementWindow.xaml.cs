@@ -1,7 +1,8 @@
-﻿using iTextSharp.text.pdf;
-using iTextSharp.text;
+﻿using iTextSharp.text;
+using iTextSharp.text.pdf;
 using Microsoft.Win32;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -37,349 +38,342 @@ namespace ApartmentManagementSystem
 
         private void InitializeFilters()
         {
-            // Populate status filter dropdown
             var statuses = Enum.GetValues(typeof(PaymentStatus)).Cast<PaymentStatus>()
                 .Select(s => new { Value = (int)s, Name = PaymentStatusHelper.GetStatusName(s) })
                 .ToList();
-
             CmbStatusFilter.ItemsSource = statuses;
             CmbStatusFilter.DisplayMemberPath = "Name";
             CmbStatusFilter.SelectedValuePath = "Value";
 
-            // Populate method filter dropdown
             var methods = Enum.GetValues(typeof(PaymentMethod)).Cast<PaymentMethod>()
                 .Select(m => new { Value = (int)m, Name = PaymentMethodHelper.GetMethodName(m) })
                 .ToList();
-
             CmbMethodFilter.ItemsSource = methods;
             CmbMethodFilter.DisplayMemberPath = "Name";
             CmbMethodFilter.SelectedValuePath = "Value";
+        }
+
+        private void InitializeTenantFilter()
+        {
+            try
+            {
+                _allTenants = _tenantRepository.GetAll();
+                _allLeases = _leaseRepository.GetAll();
+                var tenantsWithAll = new List<object> { new { Id = 0, Name = "All Tenants" } };
+                tenantsWithAll.AddRange(_allTenants.Where(t => t.IsActive)
+                                                  .Select(t => new { t.Id, Name = t.FullName })
+                                                  .ToList());
+                CmbTenantFilter.ItemsSource = tenantsWithAll;
+                CmbTenantFilter.DisplayMemberPath = "Name";
+                CmbTenantFilter.SelectedValuePath = "Id";
+                CmbTenantFilter.SelectedIndex = 0;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error initializing tenant filter: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void UpdateSummaryDashboard()
+        {
+            decimal totalPaid = _allPayments.Where(p => p.Status == PaymentStatus.Completed).Sum(p => p.Amount);
+            decimal totalOverdue = _allPayments.Where(p => p.Status == PaymentStatus.Overdue).Sum(p => p.Amount);
+            decimal totalPending = _allPayments.Where(p => p.Status == PaymentStatus.Pending).Sum(p => p.Amount);
+            decimal totalCancelled = _allPayments.Where(p => p.Status == PaymentStatus.Cancelled).Sum(p => p.Amount);
+
+            TxtTotalPaid.Text = totalPaid.ToString("C");
+            TxtTotalOverdue.Text = totalOverdue.ToString("C");
+            TxtTotalPending.Text = totalPending.ToString("C");
+            TxtTotalCancelled.Text = totalCancelled.ToString("C");
+        }
+
+        private void LoadTenantPayments(int tenantId = 0)
+        {
+            try
+            {
+                var payments = _paymentRepository.GetAll();
+                if (tenantId > 0)
+                {
+                    var tenantLeases = _allLeases.Where(l => l.TenantId == tenantId)
+                                                .Select(l => l.Id)
+                                                .ToHashSet();
+                    payments = payments.Where(p => tenantLeases.Contains(p.LeaseId)).ToList();
+                }
+
+                var paymentsWithInfo = payments.Select(p =>
+                {
+                    var lease = _allLeases.FirstOrDefault(l => l.Id == p.LeaseId);
+                    var unit = lease != null ? _allUnits.FirstOrDefault(u => u.Id == lease.UnitId) : null;
+                    var tenant = lease != null ? _allTenants.FirstOrDefault(t => t.Id == lease.TenantId) : null;
+                    var property = unit != null ? _allProperties.FirstOrDefault(prop => prop.Id == unit.PropertyId) : null;
+
+                    return new
+                    {
+                        p.Id,
+                        LeaseInfo = $"{property?.Name ?? "Unknown Property"}, Unit {unit?.UnitNumber ?? "Unknown Unit"}, {tenant?.FullName ?? "Unknown Tenant"}",
+                        p.Amount,
+                        p.PaymentDate,
+                        Method = PaymentMethodHelper.GetMethodName(p.Method),
+                        Status = PaymentStatusHelper.GetStatusName(p.Status),
+                        p.ReferenceNumber,
+                        p.Notes,
+                        OriginalStatus = p.Status
+                    };
+                })
+                .OrderBy(p => p.Id) // CHANGE: Replaced date sorting with default sorting by ID
+                .ToList();
+
+                DataGridTenantPayments.ItemsSource = paymentsWithInfo;
+            }
+            catch (Exception ex)
+            {
+                DataGridTenantPayments.ItemsSource = new List<object>();
+                MessageBox.Show($"Error loading tenant payments: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void CmbTenantFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (CmbTenantFilter.SelectedValue != null)
+            {
+                int tenantId = (int)CmbTenantFilter.SelectedValue;
+                LoadTenantPayments(tenantId);
+            }
+        }
+
+        private void BtnClearTenantFilter_Click(object sender, RoutedEventArgs e)
+        {
+            CmbTenantFilter.SelectedIndex = 0;
+            LoadTenantPayments();
         }
 
         private void LoadAllData()
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("Loading all data...");
                 _allPayments = _paymentRepository.GetAll();
                 _allLeases = _leaseRepository.GetAll();
                 _allUnits = _unitRepository.GetAll();
                 _allTenants = _tenantRepository.GetAll();
                 _allProperties = _propertyRepository.GetAll();
-
-                System.Diagnostics.Debug.WriteLine($"Loaded {_allPayments.Count} payments");
                 RefreshPaymentGrid();
-                System.Diagnostics.Debug.WriteLine("Data grid refreshed");
+                InitializeTenantFilter();
+                LoadTenantPayments();
+                UpdateSummaryDashboard();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error loading  {ex.Message}", "Error",
-                              MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Error loading {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
         private void BtnGenerateInvoice_Click(object sender, RoutedEventArgs e)
         {
-            if (DataGridPayments.SelectedItem != null)
+            var selectedTab = this.TabControl.SelectedItem as TabItem;
+            if (selectedTab?.Header.ToString() == "By Tenant")
             {
-                try
+                if (DataGridTenantPayments.SelectedItem != null)
                 {
-                    // Get the selected payment ID
-                    var selectedItem = DataGridPayments.SelectedItem;
-                    var paymentIdProperty = selectedItem.GetType().GetProperty("Id");
-                    int selectedPaymentId = paymentIdProperty != null ? (int)paymentIdProperty.GetValue(selectedItem) : 0;
-
-                    if (selectedPaymentId > 0)
-                    {
-                        // Get the full payment object with all details
-                        var paymentRepository = new PaymentRepository();
-                        var payment = paymentRepository.GetById(selectedPaymentId);
-
-                        if (payment != null)
-                        {
-                            // Get related data
-                            var leaseRepository = new LeaseRepository();
-                            var unitRepository = new UnitRepository();
-                            var tenantRepository = new TenantRepository();
-                            var propertyRepository = new PropertyRepository();
-
-                            var lease = leaseRepository.GetById(payment.LeaseId);
-                            var unit = lease != null ? unitRepository.GetById(lease.UnitId) : null;
-                            var tenant = lease != null ? tenantRepository.GetById(lease.TenantId) : null;
-                            var property = unit != null ? propertyRepository.GetById(unit.PropertyId) : null;
-
-                            // Generate professional invoice
-                            GenerateProfessionalInvoice(payment, lease, unit, tenant, property);
-                        }
-                    }
+                    GenerateInvoiceFromGrid(DataGridTenantPayments.SelectedItem);
                 }
-                catch (Exception ex)
+                else if (DataGridTenantPayments.Items.Count > 0)
                 {
-                    MessageBox.Show($"Error generating invoice: {ex.Message}", "Error",
-                                  MessageBoxButton.OK, MessageBoxImage.Error);
+                    GenerateBulkInvoiceFromGrid(DataGridTenantPayments.ItemsSource);
+                }
+                else
+                {
+                    MessageBox.Show("Please select a payment or ensure there are payments to generate invoice.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
             else
             {
-                MessageBox.Show("Please select a payment to generate invoice.", "Information",
-                              MessageBoxButton.OK, MessageBoxImage.Information);
+                if (DataGridPayments.SelectedItem != null)
+                {
+                    GenerateInvoiceFromGrid(DataGridPayments.SelectedItem);
+                }
+                else if (DataGridPayments.Items.Count > 0)
+                {
+                    GenerateBulkInvoiceFromGrid(DataGridPayments.ItemsSource);
+                }
+                else
+                {
+                    MessageBox.Show("Please select a payment or ensure there are payments to generate invoice.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
             }
         }
 
-        private void GenerateProfessionalInvoice(Payment payment, Lease lease, Unit unit, Tenant tenant, Property property)
+        private void BtnGenerateTenantReport_Click(object sender, RoutedEventArgs e)
         {
+            if (CmbTenantFilter.SelectedValue == null || (int)CmbTenantFilter.SelectedValue == 0)
+            {
+                MessageBox.Show("Please select a specific tenant from the dropdown list to generate a report.", "Select Tenant", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (DataGridTenantPayments.Items.Count == 0)
+            {
+                MessageBox.Show("There are no payments to export for the selected tenant.", "No Data", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
             try
             {
+                var selectedTenantItem = CmbTenantFilter.SelectedItem;
+                var tenantName = selectedTenantItem.GetType().GetProperty("Name")?.GetValue(selectedTenantItem, null)?.ToString() ?? "Unknown_Tenant";
+                string safeTenantName = string.Join("_", tenantName.Split(Path.GetInvalidFileNameChars()));
+
                 var saveDialog = new SaveFileDialog
                 {
-                    Filter = "PDF Files (*.pdf)|*.pdf|Word Files (*.docx)|*.docx",
-                    FileName = $"Invoice_{payment.Id}_{DateTime.Now:yyyyMMdd}.pdf"
+                    Filter = "PDF Files (*.pdf)|*.pdf",
+                    FileName = $"Payment_Report_{safeTenantName}_{DateTime.Now:yyyyMMdd}.pdf"
                 };
 
                 if (saveDialog.ShowDialog() == true)
                 {
-                    if (saveDialog.FileName.EndsWith(".pdf"))
-                    {
-                        GeneratePdfInvoice(saveDialog.FileName, payment, lease, unit, tenant, property);
-                        MessageBox.Show("Professional invoice generated successfully!", "Success",
-                                      MessageBoxButton.OK, MessageBoxImage.Information);
-                    }
-                    else
-                    {
-                        GenerateWordInvoice(saveDialog.FileName, payment, lease, unit, tenant, property);
-                        MessageBox.Show("Professional invoice generated successfully!", "Success",
-                                      MessageBoxButton.OK, MessageBoxImage.Information);
-                    }
+                    var itemsList = ((IEnumerable)DataGridTenantPayments.ItemsSource).Cast<object>().ToList();
+                    string reportTitle = $"Payment Report for {tenantName}";
+                    GenerateBulkPdfInvoice(itemsList, saveDialog.FileName, reportTitle);
+                    MessageBox.Show($"Payment report for {tenantName} generated successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error generating invoice: {ex.Message}", "Error",
-                              MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"An error occurred while generating the tenant report: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        private void GeneratePdfInvoice(string fileName, Payment payment, Lease lease, Unit unit, Tenant tenant, Property property)
+        private void GenerateBulkPdfInvoice(List<object> itemsList, string fileName, string reportTitle = "PAYMENT REPORT")
         {
             try
             {
-                var document = new Document(PageSize.A4, 50, 50, 25, 25);
+                var document = new Document(PageSize.A4, 36, 36, 54, 36);
                 var writer = PdfWriter.GetInstance(document, new FileStream(fileName, FileMode.Create));
+                writer.PageEvent = new PdfPageEvents(reportTitle);
                 document.Open();
 
-                // Professional Receipt Template
-                var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 20);
-                var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 12);
-                var normalFont = FontFactory.GetFont(FontFactory.HELVETICA, 10);
-                var smallFont = FontFactory.GetFont(FontFactory.HELVETICA, 8);
+                var baseFont = BaseFont.CreateFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+                var titleFont = new Font(baseFont, 20, Font.BOLD, new BaseColor(34, 49, 63));
+                var headerFont = new Font(baseFont, 11, Font.BOLD, new BaseColor(52, 73, 94));
+                var normalFont = new Font(baseFont, 9, Font.NORMAL, BaseColor.BLACK);
+                var whiteBoldFont = new Font(baseFont, 10, Font.BOLD, BaseColor.WHITE);
+                var tableHeaderColor = new BaseColor(65, 84, 103);
+                var alternateRowColor = new BaseColor(245, 245, 245);
 
-                // Company Header
-                var companyHeader = new Paragraph("LEASE PAYMENT RECEIPT", titleFont)
+                string subTitleText = (itemsList.Count == 1) ? "Payment Receipt Details" : $"Covering {itemsList.Count} payment records";
+
+                var docTitle = new Paragraph(reportTitle, titleFont) { Alignment = Element.ALIGN_CENTER, SpacingAfter = 5 };
+                var subTitle = new Paragraph(subTitleText, new Font(baseFont, 12, Font.ITALIC, BaseColor.GRAY))
                 {
                     Alignment = Element.ALIGN_CENTER,
-                    SpacingAfter = 30
+                    SpacingAfter = 20
                 };
-                document.Add(companyHeader);
+                document.Add(docTitle);
+                document.Add(subTitle);
 
-                // Receipt Details Table
-                var detailsTable = new PdfPTable(2) { WidthPercentage = 100 };
-                detailsTable.SetWidths(new float[] { 1f, 1f });
+                document.Add(new Paragraph("FINANCIAL OVERVIEW", headerFont) { SpacingAfter = 10 });
 
-                // Left side - From
-                var leftCell = new PdfPCell();
-                leftCell.Border = PdfPCell.NO_BORDER;
-                var leftContent = new Paragraph();
-                leftContent.Add(new Chunk("FROM:\n", headerFont));
-                leftContent.Add(new Chunk("Apartment Management System\n", normalFont));
-                leftContent.Add(new Chunk("123 Property Management St.\n", normalFont));
-                leftContent.Add(new Chunk("Business City, BC 12345\n", normalFont));
-                leftContent.Add(new Chunk("Phone: (555) 123-4567\n", normalFont));
-                leftContent.Add(new Chunk("Email: info@apartmentmgmt.com\n", normalFont));
-                leftCell.AddElement(leftContent);
-                detailsTable.AddCell(leftCell);
+                decimal totalCompleted = itemsList.Where(p => (PaymentStatus)p.GetType().GetProperty("OriginalStatus").GetValue(p) == PaymentStatus.Completed).Sum(p => (decimal)p.GetType().GetProperty("Amount").GetValue(p));
+                decimal totalOverdue = itemsList.Where(p => (PaymentStatus)p.GetType().GetProperty("OriginalStatus").GetValue(p) == PaymentStatus.Overdue).Sum(p => (decimal)p.GetType().GetProperty("Amount").GetValue(p));
+                decimal totalPending = itemsList.Where(p => (PaymentStatus)p.GetType().GetProperty("OriginalStatus").GetValue(p) == PaymentStatus.Pending).Sum(p => (decimal)p.GetType().GetProperty("Amount").GetValue(p));
+                decimal totalCancelled = itemsList.Where(p => (PaymentStatus)p.GetType().GetProperty("OriginalStatus").GetValue(p) == PaymentStatus.Cancelled).Sum(p => (decimal)p.GetType().GetProperty("Amount").GetValue(p));
+                decimal grandTotal = itemsList.Sum(p => (decimal)p.GetType().GetProperty("Amount").GetValue(p));
 
-                // Right side - To & Receipt Info
-                var rightCell = new PdfPCell();
-                rightCell.Border = PdfPCell.NO_BORDER;
+                var summaryTable = new PdfPTable(4) { WidthPercentage = 100, SpacingAfter = 25 };
+                summaryTable.SetWidths(new[] { 1f, 1f, 1f, 1f });
 
-                var rightContent = new Paragraph();
-                rightContent.Add(new Chunk("TO:\n", headerFont));
-                rightContent.Add(new Chunk($"{tenant?.FullName ?? "Unknown Tenant"}\n", normalFont));
-                rightContent.Add(new Chunk($"{tenant?.Address ?? "Unknown Address"}\n", normalFont));
-                rightContent.Add(new Chunk($"Phone: {tenant?.Phone ?? "N/A"}\n", normalFont));
-                rightContent.Add(new Chunk($"Email: {tenant?.Email ?? "N/A"}\n\n", normalFont));
+                summaryTable.AddCell(CreateSummaryCell("Total Paid (Completed)", totalCompleted.ToString("C"), new BaseColor(39, 174, 96)));
+                summaryTable.AddCell(CreateSummaryCell("Total Overdue", totalOverdue.ToString("C"), new BaseColor(231, 76, 60)));
+                summaryTable.AddCell(CreateSummaryCell("Total Pending", totalPending.ToString("C"), new BaseColor(241, 196, 15)));
+                summaryTable.AddCell(CreateSummaryCell("Total Cancelled", totalCancelled.ToString("C"), new BaseColor(149, 165, 166)));
+                document.Add(summaryTable);
 
-                rightContent.Add(new Chunk("RECEIPT #:", headerFont));
-                rightContent.Add(new Chunk($" RCT-{payment.Id:D6}\n", normalFont));
-                rightContent.Add(new Chunk("DATE:", headerFont));
-                rightContent.Add(new Chunk($" {payment.PaymentDate:MM/dd/yyyy}\n", normalFont));
-                rightContent.Add(new Chunk("FOR PERIOD:", headerFont));
-                rightContent.Add(new Chunk($" {payment.PaymentDate:MMMM yyyy}\n", normalFont)); // Monthly period
+                document.Add(new Paragraph("DETAILED PAYMENT RECORDS", headerFont) { SpacingAfter = 10 });
 
-                rightCell.AddElement(rightContent);
-                detailsTable.AddCell(rightCell);
+                var detailTable = new PdfPTable(7) { WidthPercentage = 100, HeaderRows = 1 };
+                detailTable.SetWidths(new[] { 0.5f, 2.2f, 0.8f, 1f, 0.9f, 0.9f, 1.2f });
 
-                document.Add(detailsTable);
-                document.Add(new Paragraph(" ") { SpacingAfter = 20 });
+                detailTable.AddCell(CreateHeaderCell("ID", whiteBoldFont, tableHeaderColor));
+                detailTable.AddCell(CreateHeaderCell("Lease & Tenant Info", whiteBoldFont, tableHeaderColor));
+                detailTable.AddCell(CreateHeaderCell("Amount", whiteBoldFont, tableHeaderColor, Element.ALIGN_RIGHT));
+                detailTable.AddCell(CreateHeaderCell("Payment Date", whiteBoldFont, tableHeaderColor, Element.ALIGN_CENTER));
+                detailTable.AddCell(CreateHeaderCell("Method", whiteBoldFont, tableHeaderColor, Element.ALIGN_CENTER));
+                detailTable.AddCell(CreateHeaderCell("Status", whiteBoldFont, tableHeaderColor, Element.ALIGN_CENTER));
+                detailTable.AddCell(CreateHeaderCell("Reference #", whiteBoldFont, tableHeaderColor));
 
-                // Items Table
-                var itemsTable = new PdfPTable(5) { WidthPercentage = 100 };
-                itemsTable.SetWidths(new float[] { 3f, 1f, 1f, 1f, 1f });
-
-                // Table Headers
-                itemsTable.AddCell(CreatePdfCell("DESCRIPTION", headerFont, BaseColor.LIGHT_GRAY));
-                itemsTable.AddCell(CreatePdfCell("QTY", headerFont, BaseColor.LIGHT_GRAY));
-                itemsTable.AddCell(CreatePdfCell("UNIT PRICE", headerFont, BaseColor.LIGHT_GRAY));
-                itemsTable.AddCell(CreatePdfCell("TAX", headerFont, BaseColor.LIGHT_GRAY));
-                itemsTable.AddCell(CreatePdfCell("TOTAL", headerFont, BaseColor.LIGHT_GRAY));
-
-                // Item Row - Monthly Payment
-                itemsTable.AddCell(CreatePdfCell($"Monthly Lease Payment - {property?.Name ?? "Unknown Property"}, Unit {unit?.UnitNumber ?? "Unknown Unit"}", normalFont));
-                itemsTable.AddCell(CreatePdfCell("1", normalFont));
-                itemsTable.AddCell(CreatePdfCell($"${payment.Amount:F2}", normalFont));
-                itemsTable.AddCell(CreatePdfCell("$0.00", normalFont));
-                itemsTable.AddCell(CreatePdfCell($"${payment.Amount:F2}", normalFont));
-
-                // Empty rows for spacing
-                itemsTable.AddCell(CreatePdfCell("", normalFont));
-                itemsTable.AddCell(CreatePdfCell("", normalFont));
-                itemsTable.AddCell(CreatePdfCell("", normalFont));
-                itemsTable.AddCell(CreatePdfCell("", normalFont));
-                itemsTable.AddCell(CreatePdfCell("", normalFont));
-
-                itemsTable.AddCell(CreatePdfCell("", normalFont));
-                itemsTable.AddCell(CreatePdfCell("", normalFont));
-                itemsTable.AddCell(CreatePdfCell("", normalFont));
-                itemsTable.AddCell(CreatePdfCell("SUBTOTAL", headerFont));
-                itemsTable.AddCell(CreatePdfCell($"${payment.Amount:F2}", headerFont));
-
-                itemsTable.AddCell(CreatePdfCell("", normalFont));
-                itemsTable.AddCell(CreatePdfCell("", normalFont));
-                itemsTable.AddCell(CreatePdfCell("", normalFont));
-                itemsTable.AddCell(CreatePdfCell("TAX", headerFont));
-                itemsTable.AddCell(CreatePdfCell("$0.00", headerFont));
-
-                itemsTable.AddCell(CreatePdfCell("", normalFont));
-                itemsTable.AddCell(CreatePdfCell("", normalFont));
-                itemsTable.AddCell(CreatePdfCell("", normalFont));
-                itemsTable.AddCell(CreatePdfCell("TOTAL PAID", headerFont));
-                itemsTable.AddCell(CreatePdfCell($"${payment.Amount:F2}", headerFont));
-
-                document.Add(itemsTable);
-
-                // Payment Method
-                document.Add(new Paragraph(" ") { SpacingAfter = 20 });
-                var paymentMethod = new Paragraph($"PAYMENT METHOD: {PaymentMethodHelper.GetMethodName(payment.Method)}", normalFont)
+                bool alternate = false;
+                foreach (var item in itemsList)
                 {
-                    Alignment = Element.ALIGN_LEFT
-                };
-                document.Add(paymentMethod);
+                    var itemType = item.GetType();
+                    var status = itemType.GetProperty("Status")?.GetValue(item)?.ToString() ?? "";
+                    var rowColor = alternate ? alternateRowColor : BaseColor.WHITE;
 
-                // Payment Status
-                document.Add(new Paragraph(" ") { SpacingAfter = 20 });
-                var paymentStatus = new Paragraph($"PAYMENT STATUS: {PaymentStatusHelper.GetStatusName(payment.Status)}", normalFont)
+                    detailTable.AddCell(CreateBodyCell(itemType.GetProperty("Id")?.GetValue(item)?.ToString() ?? "", normalFont, Element.ALIGN_CENTER, rowColor));
+                    detailTable.AddCell(CreateBodyCell(itemType.GetProperty("LeaseInfo")?.GetValue(item)?.ToString() ?? "", normalFont, Element.ALIGN_LEFT, rowColor));
+                    detailTable.AddCell(CreateBodyCell(((decimal)itemType.GetProperty("Amount")?.GetValue(item)).ToString("C"), normalFont, Element.ALIGN_RIGHT, rowColor));
+                    var paymentDate = (itemType.GetProperty("PaymentDate")?.GetValue(item) as DateTime?) ?? DateTime.Now;
+                    detailTable.AddCell(CreateBodyCell(paymentDate.ToString("yyyy-MM-dd"), normalFont, Element.ALIGN_CENTER, rowColor));
+                    detailTable.AddCell(CreateBodyCell(itemType.GetProperty("Method")?.GetValue(item)?.ToString() ?? "", normalFont, Element.ALIGN_CENTER, rowColor));
+                    detailTable.AddCell(CreateBodyCell(status, normalFont, Element.ALIGN_CENTER, rowColor));
+                    detailTable.AddCell(CreateBodyCell(itemType.GetProperty("ReferenceNumber")?.GetValue(item)?.ToString() ?? "", normalFont, Element.ALIGN_LEFT, rowColor));
+
+                    alternate = !alternate;
+                }
+
+                var totalCell = new PdfPCell(new Phrase("Grand Total", whiteBoldFont))
                 {
-                    Alignment = Element.ALIGN_LEFT
+                    Colspan = 2,
+                    HorizontalAlignment = Element.ALIGN_RIGHT,
+                    Padding = 8,
+                    BackgroundColor = tableHeaderColor
                 };
-                document.Add(paymentStatus);
+                detailTable.AddCell(totalCell);
 
-                // Notes
-                document.Add(new Paragraph(" ") { SpacingAfter = 20 });
-                var notes = new Paragraph("NOTES", headerFont);
-                document.Add(notes);
-                var notesContent = new Paragraph("This receipt confirms receipt of monthly lease payment. Please retain this receipt for your records.", normalFont);
-                document.Add(notesContent);
+                var totalAmountCell = new PdfPCell(new Phrase(grandTotal.ToString("C"), whiteBoldFont))
+                {
+                    HorizontalAlignment = Element.ALIGN_RIGHT,
+                    Padding = 8,
+                    BackgroundColor = tableHeaderColor
+                };
+                detailTable.AddCell(totalAmountCell);
 
-                // Footer
-                document.Add(new Paragraph(" ") { SpacingBefore = 30 });
-                var separator = new Paragraph(new string('-', 80), smallFont)
+                var emptyFooterCell = new PdfPCell(new Phrase(" ", whiteBoldFont))
+                {
+                    Colspan = 4,
+                    BackgroundColor = tableHeaderColor,
+                    BorderColor = tableHeaderColor
+                };
+                detailTable.AddCell(emptyFooterCell);
+                document.Add(detailTable);
+
+                var footerTable = new PdfPTable(1) { WidthPercentage = 100, SpacingBefore = 30f };
+                footerTable.DefaultCell.Border = Rectangle.NO_BORDER;
+                var thankYouCell = new PdfPCell
+                {
+                    Border = Rectangle.TOP_BORDER,
+                    BorderColor = new BaseColor(221, 221, 221),
+                    Padding = 15f
+                };
+
+                var thankYouPara = new Paragraph("THANK YOU FOR YOUR PAYMENT!", new Font(baseFont, 16, Font.BOLD, new BaseColor(52, 152, 219)))
+                {
+                    Alignment = Element.ALIGN_CENTER,
+                    SpacingAfter = 5f
+                };
+                thankYouCell.AddElement(thankYouPara);
+
+                var notesPara = new Paragraph("Please retain this receipt for your records. If you have any questions, please contact us.", new Font(baseFont, 8, Font.ITALIC))
                 {
                     Alignment = Element.ALIGN_CENTER
                 };
-                document.Add(separator);
-
-                var footer = new Paragraph("THANK YOU FOR YOUR PAYMENT!", headerFont)
-                {
-                    Alignment = Element.ALIGN_CENTER,
-                    SpacingAfter = 10
-                };
-                document.Add(footer);
-
-                var companyInfo = new Paragraph("Apartment Management System • 123 Property Management St. • Business City, BC 12345", smallFont)
-                {
-                    Alignment = Element.ALIGN_CENTER,
-                    SpacingAfter = 5
-                };
-                document.Add(companyInfo);
-
-                var contactInfo = new Paragraph("Phone: (555) 123-4567 • Email: info@apartmentmgmt.com • Website: www.apartmentmgmt.com", smallFont)
-                {
-                    Alignment = Element.ALIGN_CENTER
-                };
-                document.Add(contactInfo);
+                thankYouCell.AddElement(notesPara);
+                footerTable.AddCell(thankYouCell);
+                document.Add(footerTable);
 
                 document.Close();
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error generating PDF receipt: {ex.Message}", ex);
-            }
-        }
-        private void GenerateWordInvoice(string fileName, Payment payment, Lease lease, Unit unit, Tenant tenant, Property property)
-        {
-            try
-            {
-                // Simple text version for Word
-                var content = $@"LEASE PAYMENT RECEIPT
-
-FROM:
-Apartment Management System
-123 Property Management St.
-Business City, BC 12345
-Phone: (555) 123-4567
-Email: info@apartmentmgmt.com
-
-TO:
-{tenant?.FullName ?? "Unknown Tenant"}
-{tenant?.Address ?? "Unknown Address"}
-Phone: {tenant?.Phone ?? "N/A"}
-Email: {tenant?.Email ?? "N/A"}
-
-RECEIPT #: RCT-{payment.Id:D6}
-DATE: {payment.PaymentDate:MM/dd/yyyy}
-FOR PERIOD: {payment.PaymentDate:MMMM yyyy}
-
--------------------------------------------------------------------------------
-
-DESCRIPTION                                    QTY    UNIT PRICE    TAX      TOTAL
-Monthly Lease Payment - {property?.Name ?? "Unknown Property"}, Unit {unit?.UnitNumber ?? "Unknown Unit"}    1      ${payment.Amount:F2}       $0.00    ${payment.Amount:F2}
-
-                                               SUBTOTAL:           ${payment.Amount:F2}
-                                               TAX:                $0.00
-                                               TOTAL PAID:         ${payment.Amount:F2}
-
-PAYMENT METHOD: {PaymentMethodHelper.GetMethodName(payment.Method)}
-PAYMENT STATUS: {PaymentStatusHelper.GetStatusName(payment.Status)}
-
-NOTES:
-This receipt confirms receipt of monthly lease payment. Please retain this receipt for your records.
-
--------------------------------------------------------------------------------
-
-THANK YOU FOR YOUR PAYMENT!
-
-Apartment Management System
-123 Property Management St.
-Business City, BC 12345
-Phone: (555) 123-4567
-Email: info@apartmentmgmt.com
-Website: www.apartmentmgmt.com";
-
-                System.IO.File.WriteAllText(fileName, content);
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"Error generating Word receipt: {ex.Message}", ex);
+                throw new Exception($"Error generating bulk PDF invoice: {ex.Message}", ex);
             }
         }
         private PdfPCell CreatePdfCell(string text, Font font, BaseColor backgroundColor = null)
@@ -387,7 +381,7 @@ Website: www.apartmentmgmt.com";
             var cell = new PdfPCell(new Phrase(text, font))
             {
                 Padding = 8,
-                HorizontalAlignment = Element.ALIGN_LEFT
+                HorizontalAlignment = Element.ALIGN_LEFT,
             };
 
             if (backgroundColor != null)
@@ -398,37 +392,74 @@ Website: www.apartmentmgmt.com";
             return cell;
         }
 
+        private PdfPCell CreateHeaderCell(string text, Font font, BaseColor backgroundColor, int horizontalAlignment = Element.ALIGN_CENTER)
+        {
+            return new PdfPCell(new Phrase(text, font))
+            {
+                HorizontalAlignment = horizontalAlignment,
+                VerticalAlignment = Element.ALIGN_MIDDLE,
+                Padding = 8,
+                BackgroundColor = backgroundColor,
+                BorderColor = backgroundColor
+            };
+        }
+
+        private PdfPCell CreateBodyCell(string text, Font font, int horizontalAlignment, BaseColor backgroundColor)
+        {
+            return new PdfPCell(new Phrase(text, font))
+            {
+                HorizontalAlignment = horizontalAlignment,
+                VerticalAlignment = Element.ALIGN_MIDDLE,
+                Padding = 8,
+                Border = Rectangle.NO_BORDER,
+                BackgroundColor = backgroundColor,
+                NoWrap = false
+            };
+        }
+
+        private PdfPCell CreateBodyCell(string text, Font font, int horizontalAlignment, int border = Rectangle.NO_BORDER)
+        {
+            return new PdfPCell(new Phrase(text, font))
+            {
+                HorizontalAlignment = horizontalAlignment,
+                VerticalAlignment = Element.ALIGN_MIDDLE,
+                Padding = 8,
+                Border = border,
+                BorderColor = BaseColor.LIGHT_GRAY,
+                NoWrap = false
+            };
+        }
+
+        private PdfPCell CreateSummaryCell(string title, string value, BaseColor borderColor)
+        {
+            var cell = new PdfPCell { BorderWidth = 0, BorderWidthBottom = 3, BorderColorBottom = borderColor, Padding = 10 };
+            var titleFont = new Font(BaseFont.CreateFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED), 9, Font.NORMAL, BaseColor.GRAY);
+            var valueFont = new Font(BaseFont.CreateFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, BaseFont.NOT_EMBEDDED), 16, Font.NORMAL, BaseColor.BLACK);
+
+            cell.AddElement(new Paragraph(title, titleFont));
+            cell.AddElement(new Paragraph(value, valueFont));
+            return cell;
+        }
+
         private void RefreshPaymentGrid()
         {
             try
             {
-                var paymentsWithInfo = new List<object>();
-
-                foreach (var p in _allPayments)
+                var paymentsWithInfo = _allPayments.Select(p => new
                 {
-                    try
-                    {
-                        var paymentInfo = new
-                        {
-                            p.Id,
-                            LeaseInfo = GetLeaseInfo(p.LeaseId),
-                            p.Amount,
-                            p.PaymentDate,
-                            Method = PaymentMethodHelper.GetMethodName(p.Method),
-                            p.ReferenceNumber,
-                            Status = PaymentStatusHelper.GetStatusName(p.Status),
-                            p.Notes
-                        };
-                        paymentsWithInfo.Add(paymentInfo);
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Error processing payment {p.Id}: {ex.Message}");
-                    }
-                }
-
+                    p.Id,
+                    LeaseInfo = GetLeaseInfo(p.LeaseId),
+                    p.Amount,
+                    p.PaymentDate,
+                    Method = PaymentMethodHelper.GetMethodName(p.Method),
+                    p.ReferenceNumber,
+                    Status = PaymentStatusHelper.GetStatusName(p.Status),
+                    p.Notes,
+                    OriginalStatus = p.Status
+                })
+                .OrderBy(p => p.Id)
+                .ToList();
                 DataGridPayments.ItemsSource = paymentsWithInfo;
-                System.Diagnostics.Debug.WriteLine($"Refreshed {paymentsWithInfo.Count} payments in grid");
             }
             catch (Exception ex)
             {
@@ -444,12 +475,7 @@ Website: www.apartmentmgmt.com";
                 var unit = _allUnits.FirstOrDefault(u => u.Id == lease.UnitId);
                 var tenant = _allTenants.FirstOrDefault(t => t.Id == lease.TenantId);
                 var property = unit != null ? _allProperties.FirstOrDefault(p => p.Id == unit.PropertyId) : null;
-
-                var unitNumber = unit?.UnitNumber ?? "Unknown Unit";
-                var tenantName = tenant?.FullName ?? "Unknown Tenant";
-                var propertyName = property?.Name ?? "Unknown Property";
-
-                return $"{propertyName}, {unitNumber}, {tenantName}";
+                return $"{property?.Name ?? "Unknown"}, {unit?.UnitNumber ?? "N/A"}, {tenant?.FullName ?? "N/A"}";
             }
             return $"Lease {leaseId}";
         }
@@ -457,104 +483,182 @@ Website: www.apartmentmgmt.com";
         private void NotifyParentOfChanges()
         {
             var mainWindow = Application.Current.Windows.OfType<MainWindow>().FirstOrDefault();
-            mainWindow?.ManualRefresh();
+            if (mainWindow != null)
+            {
+                mainWindow.ManualRefresh();
+            }
             MainWindow.NotifyDataChanged();
         }
 
         private void BtnAddPayment_Click(object sender, RoutedEventArgs e)
         {
-            var addPaymentWindow = new AddEditPaymentWindow(_allLeases, _allUnits, _allTenants, _allProperties);
+            AddEditPaymentWindow addPaymentWindow;
+            var selectedTab = this.TabControl.SelectedItem as TabItem;
+
+            // Check if we are on the "By Tenant" tab AND a specific tenant is selected
+            if (selectedTab?.Header.ToString() == "By Tenant" &&
+                CmbTenantFilter.SelectedValue != null &&
+                (int)CmbTenantFilter.SelectedValue != 0)
+            {
+                // If yes, get the tenant ID and use the new constructor
+                int selectedTenantId = (int)CmbTenantFilter.SelectedValue;
+                addPaymentWindow = new AddEditPaymentWindow(_allLeases, _allUnits, _allTenants, _allProperties, selectedTenantId);
+            }
+            else
+            {
+                // Otherwise, use the old constructor (no pre-selection)
+                addPaymentWindow = new AddEditPaymentWindow(_allLeases, _allUnits, _allTenants, _allProperties);
+            }
+
+            // The rest of the logic remains the same
             if (addPaymentWindow.ShowDialog() == true)
             {
                 LoadAllData();
                 NotifyParentOfChanges();
-                RefreshPaymentGrid();
-
-                MessageBox.Show("Payment list refreshed!", "Info",
-                              MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
         private void BtnEditPayment_Click(object sender, RoutedEventArgs e)
         {
-            if (DataGridPayments.SelectedItem != null)
-            {
-                // Get the actual payment ID from the selected row
-                var selectedItem = DataGridPayments.SelectedItem;
-                var paymentIdProperty = selectedItem.GetType().GetProperty("Id");
-                int selectedPaymentId = paymentIdProperty != null ? (int)paymentIdProperty.GetValue(selectedItem) : 0;
+            var selectedTab = this.TabControl.SelectedItem as TabItem;
 
-                if (selectedPaymentId > 0)
-                {
-                    var paymentToEdit = _allPayments.FirstOrDefault(p => p.Id == selectedPaymentId);
-                    if (paymentToEdit != null)
-                    {
-                        var editPaymentWindow = new AddEditPaymentWindow(paymentToEdit, _allLeases, _allUnits, _allTenants, _allProperties);
-                        if (editPaymentWindow.ShowDialog() == true)
-                        {
-                            LoadAllData(); // Refresh the list
-                            NotifyParentOfChanges(); // Add this line
-                        }
-                    }
-                }
+            // FIX: Use .Contains() to robustly check the header text
+            object selectedItem = (selectedTab?.Header.ToString().Contains("By Tenant") == true)
+                ? DataGridTenantPayments.SelectedItem
+                : DataGridPayments.SelectedItem;
+
+            if (selectedItem != null)
+            {
+                EditPaymentFromGrid(selectedItem);
             }
             else
             {
-                MessageBox.Show("Please select a payment to edit.", "Information",
-                              MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("Please select a payment to edit.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+        private void BtnDeletePayment_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedTab = this.TabControl.SelectedItem as TabItem;
+
+            // FIX: Use .Contains() to robustly check the header text
+            object selectedItem = (selectedTab?.Header.ToString().Contains("By Tenant") == true)
+                ? DataGridTenantPayments.SelectedItem
+                : DataGridPayments.SelectedItem;
+
+            if (selectedItem != null)
+            {
+                DeletePaymentFromGrid(selectedItem);
+            }
+            else
+            {
+                MessageBox.Show("Please select a payment to delete.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+        private void EditPaymentFromGrid(object selectedItem)
+        {
+            try
+            {
+                int selectedPaymentId = (int)selectedItem.GetType().GetProperty("Id").GetValue(selectedItem, null);
+                var paymentToEdit = _allPayments.FirstOrDefault(p => p.Id == selectedPaymentId);
+                if (paymentToEdit != null)
+                {
+                    var editPaymentWindow = new AddEditPaymentWindow(paymentToEdit, _allLeases, _allUnits, _allTenants, _allProperties);
+                    if (editPaymentWindow.ShowDialog() == true)
+                    {
+                        LoadAllData();
+                        NotifyParentOfChanges();
+                        MessageBox.Show("Payment updated successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error editing payment: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        private void BtnDeletePayment_Click(object sender, RoutedEventArgs e)
+        private void GenerateInvoiceFromGrid(object selectedItem)
         {
-            if (DataGridPayments.SelectedItem != null)
+            try
             {
-                // Get the actual payment ID from the selected row
-                var selectedItem = DataGridPayments.SelectedItem;
-                var paymentIdProperty = selectedItem.GetType().GetProperty("Id");
-                int selectedPaymentId = paymentIdProperty != null ? (int)paymentIdProperty.GetValue(selectedItem) : 0;
-
-                if (selectedPaymentId > 0)
+                if (selectedItem != null)
                 {
-                    var paymentToDelete = _allPayments.FirstOrDefault(p => p.Id == selectedPaymentId);
-                    if (paymentToDelete != null)
+                    var saveDialog = new SaveFileDialog
                     {
-                        var leaseInfo = GetLeaseInfo(paymentToDelete.LeaseId);
+                        Filter = "PDF Files (*.pdf)|*.pdf",
+                        FileName = $"Payment_Receipt_{selectedItem.GetType().GetProperty("Id").GetValue(selectedItem)}_{DateTime.Now:yyyyMMdd}.pdf"
+                    };
 
-                        var result = MessageBox.Show($"Are you sure you want to delete the payment for {leaseInfo}?",
-                                                   "Confirm Delete",
-                                                   MessageBoxButton.YesNo,
-                                                   MessageBoxImage.Question);
+                    if (saveDialog.ShowDialog() == true)
+                    {
+                        var itemsList = new List<object> { selectedItem };
+                        GenerateBulkPdfInvoice(itemsList, saveDialog.FileName, "Payment Receipt");
+                        MessageBox.Show("Receipt generated successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error generating receipt: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        private void GenerateBulkInvoiceFromGrid(object itemsSource)
+        {
+            try
+            {
+                var itemsList = ((IEnumerable)itemsSource).Cast<object>().ToList();
+                if (itemsList.Any())
+                {
+                    var saveDialog = new SaveFileDialog
+                    {
+                        Filter = "PDF Files (*.pdf)|*.pdf|CSV Files (*.csv)|*.csv",
+                        FileName = $"Bulk_Payments_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"
+                    };
 
-                        if (result == MessageBoxResult.Yes)
+                    if (saveDialog.ShowDialog() == true)
+                    {
+                        if (saveDialog.FileName.EndsWith(".pdf"))
                         {
-                            try
-                            {
-                                _paymentRepository.Delete(paymentToDelete.Id);
-                                LoadAllData(); // Refresh the list
-                                NotifyParentOfChanges(); // Add this line
-                                MessageBox.Show("Payment deleted successfully!", "Success",
-                                              MessageBoxButton.OK, MessageBoxImage.Information);
-                            }
-                            catch (Exception ex)
-                            {
-                                MessageBox.Show($"Error deleting payment: {ex.Message}", "Error",
-                                              MessageBoxButton.OK, MessageBoxImage.Error);
-                            }
+                            GenerateBulkPdfInvoice(itemsList, saveDialog.FileName);
+                            MessageBox.Show($"Bulk PDF invoice generated successfully for {itemsList.Count} payments!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
                         }
                     }
                 }
             }
-            else
+            catch (Exception ex)
             {
-                MessageBox.Show("Please select a payment to delete.", "Information",
-                              MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show($"Error generating bulk invoice: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void DeletePaymentFromGrid(object selectedItem)
+        {
+            try
+            {
+                int selectedPaymentId = (int)selectedItem.GetType().GetProperty("Id").GetValue(selectedItem, null);
+                var paymentToDelete = _allPayments.FirstOrDefault(p => p.Id == selectedPaymentId);
+                if (paymentToDelete != null)
+                {
+                    var leaseInfo = GetLeaseInfo(paymentToDelete.LeaseId);
+                    var result = MessageBox.Show($"Are you sure you want to delete the payment for {leaseInfo}?", "Confirm Delete", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    if (result == MessageBoxResult.Yes)
+                    {
+                        _paymentRepository.Delete(paymentToDelete.Id);
+                        LoadAllData();
+                        NotifyParentOfChanges();
+                        MessageBox.Show("Payment deleted successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error deleting payment: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
         private void CmbStatusFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (CmbStatusFilter.SelectedItem != null)
+            if (CmbStatusFilter.SelectedValue != null)
             {
                 var selectedStatus = (int)CmbStatusFilter.SelectedValue;
                 var filteredPayments = _allPayments.Where(p => (int)p.Status == selectedStatus).ToList();
@@ -564,7 +668,7 @@ Website: www.apartmentmgmt.com";
 
         private void CmbMethodFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (CmbMethodFilter.SelectedItem != null)
+            if (CmbMethodFilter.SelectedValue != null)
             {
                 var selectedMethod = (int)CmbMethodFilter.SelectedValue;
                 var filteredPayments = _allPayments.Where(p => (int)p.Method == selectedMethod).ToList();
@@ -598,7 +702,6 @@ Website: www.apartmentmgmt.com";
                     GetLeaseInfo(p.LeaseId).ToLower().Contains(searchText) ||
                     p.ReferenceNumber?.ToLower().Contains(searchText) == true ||
                     p.Notes?.ToLower().Contains(searchText) == true).ToList();
-
                 RefreshFilteredPaymentGrid(filteredPayments);
             }
         }
@@ -615,9 +718,45 @@ Website: www.apartmentmgmt.com";
                 p.ReferenceNumber,
                 Status = PaymentStatusHelper.GetStatusName(p.Status),
                 p.Notes
-            }).ToList();
-
+            })
+                .OrderBy(p => p.Id)
+                .ToList();
             DataGridPayments.ItemsSource = paymentsWithInfo;
+        }
+    }
+
+    public class PdfPageEvents : PdfPageEventHelper
+    {
+        private readonly Font _footerFont = new Font(BaseFont.CreateFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED), 8, Font.ITALIC);
+        private readonly string _reportTitle;
+
+        public PdfPageEvents(string reportTitle)
+        {
+            _reportTitle = reportTitle;
+        }
+
+        public override void OnEndPage(PdfWriter writer, Document document)
+        {
+            base.OnEndPage(writer, document);
+            var footerTable = new PdfPTable(2) { TotalWidth = document.PageSize.Width - document.LeftMargin - document.RightMargin };
+            footerTable.DefaultCell.Border = Rectangle.NO_BORDER;
+
+            var leftCell = new PdfPCell(new Phrase($"{_reportTitle} - Generated on {DateTime.Now:yyyy-MM-dd HH:mm}", _footerFont))
+            {
+                Border = Rectangle.NO_BORDER,
+                HorizontalAlignment = Element.ALIGN_LEFT
+            };
+
+            var rightCell = new PdfPCell(new Phrase($"Page {writer.PageNumber}", _footerFont))
+            {
+                Border = Rectangle.NO_BORDER,
+                HorizontalAlignment = Element.ALIGN_RIGHT
+            };
+
+            footerTable.AddCell(leftCell);
+            footerTable.AddCell(rightCell);
+
+            footerTable.WriteSelectedRows(0, -1, document.LeftMargin, document.BottomMargin - 10, writer.DirectContent);
         }
     }
 }

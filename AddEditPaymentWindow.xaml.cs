@@ -91,6 +91,18 @@ namespace ApartmentManagementSystem
             return $"{propertyName}, {unitNumber}, {tenantName} (${lease.MonthlyRent}/month)";
         }
 
+        public AddEditPaymentWindow(List<Lease> leases, List<Unit> units, List<Tenant> tenants, List<Property> properties, int preselectedTenantId)
+    : this(leases, units, tenants, properties) // This calls the base constructor to do the initial setup
+        {
+            // After the form is initialized, find the first lease belonging to the pre-selected tenant
+            var leaseForTenant = leases.FirstOrDefault(l => l.TenantId == preselectedTenantId);
+            if (leaseForTenant != null)
+            {
+                // Set the ComboBox to that lease
+                CmbLeases.SelectedValue = leaseForTenant.Id;
+            }
+        }
+
         private void LoadPaymentData()
         {
             if (_payment != null)
@@ -115,47 +127,14 @@ namespace ApartmentManagementSystem
                 if (_payment == null)
                     _payment = new Payment();
 
-                // Log all values before saving
-                System.Diagnostics.Debug.WriteLine("=== Payment Save Debug ===");
-                System.Diagnostics.Debug.WriteLine($"LeaseId: {CmbLeases.SelectedValue}");
-                System.Diagnostics.Debug.WriteLine($"Amount: {TxtAmount.Text}");
-                System.Diagnostics.Debug.WriteLine($"PaymentDate: {DpPaymentDate.SelectedDate}");
-                System.Diagnostics.Debug.WriteLine($"Method SelectedValue: {CmbMethod.SelectedValue} (Type: {CmbMethod.SelectedValue?.GetType()})");
-                System.Diagnostics.Debug.WriteLine($"Status SelectedValue: {CmbStatus.SelectedValue} (Type: {CmbStatus.SelectedValue?.GetType()})");
-
                 _payment.LeaseId = (int)CmbLeases.SelectedValue;
                 _payment.Amount = decimal.TryParse(TxtAmount.Text, out decimal amount) ? amount : 0;
                 _payment.PaymentDate = DpPaymentDate.SelectedDate ?? DateTime.Now;
-
-                // Safe enum casting
-                if (CmbMethod.SelectedValue != null)
-                {
-                    var methodValue = Convert.ToInt32(CmbMethod.SelectedValue);
-                    System.Diagnostics.Debug.WriteLine($"Method Value: {methodValue}");
-                    _payment.Method = (PaymentMethod)methodValue;
-                }
-                else
-                {
-                    _payment.Method = PaymentMethod.Other;
-                }
-
+                _payment.Method = (PaymentMethod)CmbMethod.SelectedValue;
                 _payment.ReferenceNumber = string.IsNullOrWhiteSpace(TxtReferenceNumber.Text) ? null : TxtReferenceNumber.Text.Trim();
-
-                if (CmbStatus.SelectedValue != null)
-                {
-                    var statusValue = Convert.ToInt32(CmbStatus.SelectedValue);
-                    System.Diagnostics.Debug.WriteLine($"Status Value: {statusValue}");
-                    _payment.Status = (PaymentStatus)statusValue;
-                }
-                else
-                {
-                    _payment.Status = PaymentStatus.Pending;
-                }
-
+                _payment.Status = (PaymentStatus)CmbStatus.SelectedValue;
                 _payment.Notes = string.IsNullOrWhiteSpace(TxtNotes.Text) ? null : TxtNotes.Text.Trim();
                 _payment.CreatedDate = DateTime.Now;
-
-                System.Diagnostics.Debug.WriteLine($"Saving Payment - Method: {_payment.Method}, Status: {_payment.Status}");
 
                 if (_isEditMode)
                 {
@@ -166,6 +145,10 @@ namespace ApartmentManagementSystem
                 else
                 {
                     _paymentRepository.Add(_payment);
+
+                    // Notify main window to refresh
+                    MainWindow.NotifyDataChanged();
+
                     MessageBox.Show("Payment added successfully!", "Success",
                                   MessageBoxButton.OK, MessageBoxImage.Information);
                 }
@@ -175,12 +158,10 @@ namespace ApartmentManagementSystem
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error saving payment: {ex}");
                 MessageBox.Show($"Error saving payment: {ex.Message}", "Error",
                               MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-
         private bool ValidateInput()
         {
             if (CmbLeases.SelectedValue == null)

@@ -9,24 +9,52 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Header -->
         <Border Grid.Row="0" Background="#2C3E50" Padding="15">
             <TextBlock Text="💰 Payment Management" 
-                      Foreground="White" FontSize="18" FontWeight="Bold"/>
+                       Foreground="White" FontSize="18" FontWeight="Bold"/>
         </Border>
 
-        <!-- Filters -->
-        <Border Grid.Row="1" Background="#ECF0F1" Padding="10">
+        <Border Grid.Row="1" Background="#FFFFFF" Padding="10" Margin="10,10,10,0"
+                BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Vertical" Margin="5">
+                    <TextBlock Text="Total Paid" FontSize="12" Foreground="#7F8C8D"/>
+                    <TextBlock x:Name="TxtTotalPaid" Text="$0.00" FontSize="20" FontWeight="Bold" Foreground="#27AE60"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Vertical" Margin="5">
+                    <TextBlock Text="Total Overdue" FontSize="12" Foreground="#7F8C8D"/>
+                    <TextBlock x:Name="TxtTotalOverdue" Text="$0.00" FontSize="20" FontWeight="Bold" Foreground="#E74C3C"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Vertical" Margin="5">
+                    <TextBlock Text="Total Pending" FontSize="12" Foreground="#7F8C8D"/>
+                    <TextBlock x:Name="TxtTotalPending" Text="$0.00" FontSize="20" FontWeight="Bold" Foreground="#F39C12"/>
+                </StackPanel>
+                <StackPanel Grid.Column="3" Orientation="Vertical" Margin="5">
+                    <TextBlock Text="Total Cancelled" FontSize="12" Foreground="#7F8C8D"/>
+                    <TextBlock x:Name="TxtTotalCancelled" Text="$0.00" FontSize="20" FontWeight="Bold" Foreground="#95A5A6"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2" Background="#ECF0F1" Padding="10">
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Status:" VerticalAlignment="Center" Margin="0,0,10,0"/>
                 <ComboBox x:Name="CmbStatusFilter" Width="150" Margin="0,0,20,0" 
-                         SelectionChanged="CmbStatusFilter_SelectionChanged"/>
+                          SelectionChanged="CmbStatusFilter_SelectionChanged"/>
                 <TextBlock Text="Method:" VerticalAlignment="Center" Margin="0,0,10,0"/>
                 <ComboBox x:Name="CmbMethodFilter" Width="150" Margin="0,0,20,0" 
-                         SelectionChanged="CmbMethodFilter_SelectionChanged"/>
+                          SelectionChanged="CmbMethodFilter_SelectionChanged"/>
                 <Button x:Name="BtnShowAll" Content="Show All" 
                         Padding="10,5" Margin="0,0,20,0"
                         Background="#3498DB" Foreground="White"
@@ -38,8 +66,7 @@
             </StackPanel>
         </Border>
 
-        <!-- Toolbar -->
-        <Border Grid.Row="2" Background="#ECF0F1" Padding="10">
+        <Border Grid.Row="3" Background="#ECF0F1" Padding="10">
             <StackPanel Orientation="Horizontal">
                 <Button x:Name="BtnAddPayment" Content="➕ Add New Payment" 
                         Padding="15,8" Margin="0,0,10,0"
@@ -66,25 +93,69 @@
             </StackPanel>
         </Border>
 
-        <!-- Data Grid -->
-        <DataGrid Grid.Row="3" x:Name="DataGridPayments" 
-                  AutoGenerateColumns="False" 
-                  IsReadOnly="True"
-                  SelectionMode="Single"
-                  SelectionUnit="FullRow"
-                  Margin="10"
-                  AlternatingRowBackground="#F8F9FA">
+        <TabControl x:Name="TabControl" Grid.Row="4" Margin="10">
+            <TabItem Header="💳 All Payments">
+                <Border Background="White" CornerRadius="10" Margin="5" Padding="15">
+                    <DataGrid x:Name="DataGridPayments" 
+                              AutoGenerateColumns="False" 
+                              IsReadOnly="True"
+                              SelectionMode="Single"
+                              SelectionUnit="FullRow"
+                              Margin="0,10,0,0"
+                              AlternatingRowBackground="#F8F9FA">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="50"/>
+                            <DataGridTextColumn Header="Lease Info" Binding="{Binding LeaseInfo}" Width="200"/>
+                            <DataGridTextColumn Header="Amount ($)" Binding="{Binding Amount, StringFormat='{}{0:C}'}" Width="100"/>
+                            <DataGridTextColumn Header="Payment Date" Binding="{Binding PaymentDate, StringFormat='{}{0:yyyy-MM-dd}'}" Width="100"/>
+                            <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="120"/>
+                            <DataGridTextColumn Header="Reference #" Binding="{Binding ReferenceNumber}" Width="120"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100"/>
+                            <DataGridTextColumn Header="Notes" Binding="{Binding Notes}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Border>
+            </TabItem>
 
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="50"/>
-                <DataGridTextColumn Header="Lease Info" Binding="{Binding LeaseInfo}" Width="200"/>
-                <DataGridTextColumn Header="Amount ($)" Binding="{Binding Amount}" Width="100"/>
-                <DataGridTextColumn Header="Payment Date" Binding="{Binding PaymentDate, StringFormat='{}{0:yyyy-MM-dd}'}" Width="100"/>
-                <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="120"/>
-                <DataGridTextColumn Header="Reference #" Binding="{Binding ReferenceNumber}" Width="120"/>
-                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100"/>
-                <DataGridTextColumn Header="Notes" Binding="{Binding Notes}" Width="200"/>
-            </DataGrid.Columns>
-        </DataGrid>
+            <TabItem Header="👥 By Tenant">
+                <Border Background="White" CornerRadius="10" Margin="5" Padding="15">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Payments by Tenant" FontSize="16" FontWeight="Bold" 
+                                   Foreground="#2C3E50" Margin="0,0,0,10"/>
+
+                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,10">
+                            <TextBlock Text="Filter by Tenant:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <ComboBox x:Name="CmbTenantFilter" Width="200" Margin="0,0,10,0" 
+                                     SelectionChanged="CmbTenantFilter_SelectionChanged"/>
+                            <Button x:Name="BtnClearTenantFilter" Content="Clear" 
+                                    Padding="10,5" Click="BtnClearTenantFilter_Click" Margin="0,0,10,0"/>
+                            <Button x:Name="BtnGenerateTenantReport" Content="📄 Export Tenant Report" 
+                                    Padding="10,5" 
+                                    Background="#16A085" Foreground="White"
+                                    Click="BtnGenerateTenantReport_Click"/>
+                        </StackPanel>
+
+                        <DataGrid x:Name="DataGridTenantPayments" 
+                                  AutoGenerateColumns="False" 
+                                  IsReadOnly="True"
+                                  SelectionMode="Single"
+                                  SelectionUnit="FullRow"
+                                  Margin="0,10,0,0"
+                                  AlternatingRowBackground="#F8F9FA">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="50"/>
+                                <DataGridTextColumn Header="Lease Info" Binding="{Binding LeaseInfo}" Width="200"/>
+                                <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat='{}{0:C}'}" Width="100"/>
+                                <DataGridTextColumn Header="Payment Date" Binding="{Binding PaymentDate, StringFormat='{}{0:yyyy-MM-dd}'}" Width="100"/>
+                                <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="100"/>
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100"/>
+                                <DataGridTextColumn Header="Reference #" Binding="{Binding ReferenceNumber}" Width="120"/>
+                                <DataGridTextColumn Header="Notes" Binding="{Binding Notes}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+            </TabItem>
+        </TabControl>
     </Grid>
 </Window>

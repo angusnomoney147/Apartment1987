@@ -122,17 +122,15 @@ namespace ApartmentManagementSystem
                 }
                 else
                 {
-                    // Add the lease first
                     _leaseRepository.Add(_lease);
 
-                    // Update unit status to Occupied
-                    System.Diagnostics.Debug.WriteLine($"About to update unit {_lease.UnitId} to Occupied status");
+                    // Automatically create payments based on lease duration
+                    CreateAutomaticPayments(_lease);
+
+                    // Automatically update unit status to Occupied
                     UpdateUnitStatus(_lease.UnitId, UnitStatus.Occupied);
 
-                    // Create initial payment
-                    CreateInitialPayment(_lease);
-
-                    MessageBox.Show("Lease added successfully! Unit is now occupied and initial payment created.", "Success",
+                    MessageBox.Show("Lease added successfully! Payments created and unit is now occupied.", "Success",
                                   MessageBoxButton.OK, MessageBoxImage.Information);
                 }
 
@@ -146,64 +144,68 @@ namespace ApartmentManagementSystem
             }
         }
 
-
-        private void CreateInitialPayment(Lease lease)
+        private void CreateAutomaticPayments(Lease lease)
         {
             try
             {
-                var payment = new Payment
-                {
-                    LeaseId = lease.Id,
-                    Amount = lease.MonthlyRent,
-                    PaymentDate = DateTime.Now,
-                    DueDate = lease.StartDate.AddMonths(1), // Due next month
-                    Status = PaymentStatus.Pending,
-                    Method = PaymentMethod.Other, // Default to Other, can be changed later
-                    ReferenceNumber = $"LEASE-{lease.Id}-001",
-                    Notes = "Initial rent payment for new lease",
-                    CreatedDate = DateTime.Now
-                };
-
                 var paymentRepository = new PaymentRepository();
-                paymentRepository.Add(payment);
+
+                // Calculate number of months in the lease
+                var months = ((lease.EndDate.Year - lease.StartDate.Year) * 12) +
+                             (lease.EndDate.Month - lease.StartDate.Month);
+
+                if (months <= 0) months = 1; // At least one payment
+
+                // Create a payment for each month
+                for (int i = 0; i < months; i++)
+                {
+                    var paymentDate = lease.StartDate.AddMonths(i);
+
+                    // Skip if payment date is after lease end date
+                    if (paymentDate > lease.EndDate)
+                        break;
+
+                    var payment = new Payment
+                    {
+                        LeaseId = lease.Id,
+                        Amount = lease.MonthlyRent,
+                        PaymentDate = paymentDate,
+                        DueDate = paymentDate, // Due on the same date
+                        Status = PaymentStatus.Pending, // Initially pending
+                        Method = PaymentMethod.Other, // Can be changed later
+                        ReferenceNumber = $"LEASE-{lease.Id}-PMT-{i + 1:D2}",
+                        Notes = $"Monthly payment #{i + 1} for lease period {paymentDate:MMM yyyy}",
+                        CreatedDate = DateTime.Now
+                    };
+
+                    paymentRepository.Add(payment);
+                }
+
+                MainWindow.NotifyDataChanged(); // Refresh dashboard
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error creating initial payment: {ex.Message}", "Warning",
+                MessageBox.Show($"Error creating automatic payments: {ex.Message}", "Warning",
                               MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
+
 
         private void UpdateUnitStatus(int unitId, UnitStatus status)
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine($"Updating unit {unitId} to status {status}");
                 var unitRepository = new UnitRepository();
                 unitRepository.UpdateUnitStatus(unitId, status);
-                System.Diagnostics.Debug.WriteLine($"Successfully updated unit {unitId}");
-                MainWindow.NotifyDataChanged();
+                MainWindow.NotifyDataChanged(); // Refresh dashboard
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error updating unit status: {ex.Message}");
                 MessageBox.Show($"Error updating unit status: {ex.Message}", "Warning",
                               MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
-        private void LogUnitStatusChange(string unitNumber, UnitStatus oldStatus, UnitStatus newStatus)
-        {
-            try
-            {
-                // This would typically go to a logs table, but for now we can show a notification
-                System.Diagnostics.Debug.WriteLine($"Unit {unitNumber} status changed from {UnitStatusHelper.GetStatusName(oldStatus)} to {UnitStatusHelper.GetStatusName(newStatus)}");
-            }
-            catch
-            {
-                // Silent fail
-            }
-        }
 
         private void CmbProperties_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
